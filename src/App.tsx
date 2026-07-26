@@ -8,6 +8,7 @@ import Landing from '@/pages/Landing'
 // Las rutas internas cargan React Flow: se separan del bundle de la landing
 const Dashboard = lazy(() => import('@/pages/Dashboard'))
 const ProjectBoard = lazy(() => import('@/pages/ProjectBoard'))
+const RiskAnalysis = lazy(() => import('@/pages/RiskAnalysis'))
 const Profile = lazy(() => import('@/pages/Profile'))
 const AuthCallback = lazy(() => import('@/pages/AuthCallback'))
 
@@ -42,6 +43,14 @@ function Router() {
             element={
               <Protected>
                 <Dashboard />
+              </Protected>
+            }
+          />
+          <Route
+            path="/app/analisis"
+            element={
+              <Protected>
+                <RiskAnalysis />
               </Protected>
             }
           />

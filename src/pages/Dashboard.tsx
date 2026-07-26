@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowRight, Bot, GitPullRequest, Play, Plus, Plug, Unplug, Users, Zap } from 'lucide-react'
+import { ArrowRight, Bot, GitPullRequest, Plus, Plug, Unplug, Users, Zap } from 'lucide-react'
 import { AppShell } from '@/components/app/AppShell'
 import { NewProjectModal } from '@/components/app/NewProjectModal'
 import { Button } from '@/components/ui/Button'
@@ -9,7 +9,6 @@ import { Avatar } from '@/components/ui/Avatar'
 import { Stamp } from '@/components/ui/Bits'
 import { GitHubLogo, SupabaseLogo } from '@/components/brand/Logos'
 import { useAppStore } from '@/store/AppStore'
-import { getTokens } from '@/lib/api'
 import { cn } from '@/lib/cn'
 
 export default function Dashboard() {
@@ -51,9 +50,27 @@ export default function Dashboard() {
         {/* Layout principal: 2 columnas */}
         <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_380px]">
 
-          {/* Columna izquierda: Agentes + Chat */}
+          {/* Columna izquierda: Análisis + Chat */}
           <div>
-            <AgentsPanel />
+            {/* Tarjeta destacada que enlaza al análisis real */}
+            <Link
+              to="/app/analisis"
+              className="group flex items-center gap-4 rounded-xl border-2 border-violet-600 bg-violet-50 p-5 shadow-hard-violet transition-transform hover:-translate-y-1"
+            >
+              <div className="grid h-12 w-12 place-items-center rounded-lg border-2 border-ink-900 bg-violet-600 transition-all group-hover:-rotate-6">
+                <Zap className="h-5 w-5 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-[16px] font-bold text-ink-900">Análisis Multiagente</h3>
+                <p className="text-[12px] text-ink-600">
+                  Pipeline completo: 4 agentes, cadena causal, pre-mortem, escenarios y acciones.
+                </p>
+              </div>
+              <ArrowRight className="h-5 w-5 shrink-0 text-violet-600 transition-transform group-hover:translate-x-1" />
+            </Link>
+
+            {/* Chat con agentes */}
+            <AgentChat />
           </div>
 
           {/* Columna derecha: Integraciones + Resumen */}
@@ -329,257 +346,6 @@ export default function Dashboard() {
   )
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════ */
-
-interface AgentResult {
-  risk_score: number
-  severity: string
-  is_partial: boolean
-  financial_impact: number
-  outcomes: Array<{
-    agent: string
-    score: number
-    signals: Array<{ code: string; message: string; weight: number }>
-  }>
-  primary_reason: string | null
-}
-
-function AgentsPanel() {
-  const [result, setResult] = useState<AgentResult | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [selectedAgent, setSelectedAgent] = useState<string | null>(null)
-
-  const agents = [
-    {
-      name: 'commitment', label: 'Commitment Agent', icon: '📅',
-      desc: 'Analiza vencimientos y compromisos',
-      howItWorks: 'Evalúa la fecha de vencimiento del compromiso contra la fecha actual. Detecta issues vencidos, próximos a vencer, sin fecha asignada o reabiertos.',
-      signals: ['overdue — Compromiso vencido', 'due_soon — Vence en menos de 3 días', 'no_due_date — Sin fecha de entrega', 'reopened — Fue cerrado y reabierto'],
-    },
-    {
-      name: 'technical', label: 'Technical Agent', icon: '⚙️',
-      desc: 'Detecta bloqueos y estancamiento',
-      howItWorks: 'Analiza el flujo de trabajo técnico: transiciones de estado, asignaciones, actividad reciente. Identifica patrones de riesgo como bloqueos, falta de responsable o estancamiento.',
-      signals: ['blocked — Issue marcado como bloqueado', 'unassigned — Sin responsable', 'stale — Sin actividad en X días', 'reassignment_churn — Múltiples reasignaciones'],
-    },
-    {
-      name: 'financial', label: 'Financial Agent', icon: '💰',
-      desc: 'Calcula impacto económico',
-      howItWorks: 'Toma las horas estimadas del compromiso y el costo/hora del proyecto para calcular el impacto económico si el compromiso falla. Cuantifica el riesgo en USD.',
-      signals: ['hours_at_risk — Horas que podrían perderse', 'cost_impact — Costo = horas × tarifa', 'budget_exposure — % del presupuesto en peligro'],
-    },
-    {
-      name: 'risk', label: 'Risk Agent', icon: '🎯',
-      desc: 'Compone riesgo global ponderado',
-      howItWorks: 'Recibe las salidas de los demás agentes y las combina con pesos declarados. Clasifica el resultado en severidad (low/medium/high/critical) e identifica la señal dominante.',
-      signals: ['weighted_score — Score ponderado 0-100', 'severity — low (<40) / medium (40-59) / high (60-79) / critical (80+)', 'dominant_signal — Señal de mayor peso'],
-    },
-    {
-      // `name` es la clave que empareja con el nombre del agente en el backend
-      // (`result.outcomes.find(o => o.agent === agent.name)`). Solo cambia `label`,
-      // que es lo que ve el usuario.
-      name: 'orchestrator', label: 'Datgent Cerebro', icon: '🤖',
-      desc: 'Núcleo de Inteligencia Multiagente',
-      howItWorks: 'Coordina a los agentes especializados en secuencia. Si uno falla, continúa con los demás y marca el análisis como parcial (is_partial=true). Después compone el riesgo consolidado a partir de todas las salidas.',
-      signals: ['parallel_execution — Cada agente es independiente', 'fault_tolerance — Fallos aislados', 'result_composition — Agrega en AnalysisResult'],
-    },
-  ]
-
-  async function runAnalysis() {
-    setLoading(true)
-    setError(null)
-    setResult(null)
-    try {
-      const tokens = getTokens()
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      }
-      if (tokens?.access_token) {
-        headers['Authorization'] = `Bearer ${tokens.access_token}`
-      }
-      const res = await fetch('https://hackaton-codigo-facilito-agentes.onrender.com/agents/analyze', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          project_key: 'DATGENT',
-          issue_key: 'DATGENT-42',
-          title: 'Implementar sistema de multi-agentes',
-          due_date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-          estimated_hours: 40,
-          hourly_cost: 75,
-        }),
-      })
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new Error(body.detail || res.statusText)
-      }
-      const data = await res.json()
-      setResult(data)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error ejecutando agentes')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const severityColor: Record<string, string> = {
-    low: 'bg-mint-100 text-mint-700 border-mint-300',
-    medium: 'bg-clay-100 text-clay-700 border-clay-300',
-    high: 'bg-orange-100 text-orange-700 border-orange-300',
-    critical: 'bg-rose-100 text-rose-700 border-rose-300',
-  }
-
-  return (
-    <div className="mt-12">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Bot className="h-5 w-5 text-violet-600" />
-          <h2 className="font-display text-[24px] tracking-tightest text-ink-900">Agentes IA</h2>
-        </div>
-        <Button onClick={runAnalysis} loading={loading} size="sm">
-          <Play className="h-3.5 w-3.5" />
-          Ejecutar análisis
-        </Button>
-      </div>
-      <p className="mt-1 text-[13px] text-ink-500">
-        Pipeline de agentes especializados para detección de riesgos. Ejecutá manualmente para ver el resultado.
-      </p>
-
-      {/* Grid de agentes */}
-      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        {agents.map((agent, i) => (
-          <motion.button
-            key={agent.name}
-            onClick={() => setSelectedAgent(selectedAgent === agent.name ? null : agent.name)}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 + i * 0.04 }}
-            className={cn(
-              'rounded-xl border-2 bg-paper p-3 shadow-hard-sm text-left transition-all',
-              selectedAgent === agent.name
-                ? 'border-violet-600 ring-2 ring-violet-200'
-                : 'border-ink-900 hover:-translate-y-0.5'
-            )}
-          >
-            <span className="text-lg">{agent.icon}</span>
-            <h3 className="mt-1 text-[12px] font-bold text-ink-900">{agent.label}</h3>
-            <p className="text-[10px] leading-tight text-ink-500">{agent.desc}</p>
-            {result && (
-              <div className="mt-2 rounded bg-ink-50 px-1.5 py-1">
-                <span className="font-mono text-[10px] font-bold text-violet-700">
-                  score: {result.outcomes.find(o => o.agent === agent.name)?.score ?? '—'}
-                </span>
-              </div>
-            )}
-          </motion.button>
-        ))}
-      </div>
-
-      {/* Detalle del agente seleccionado */}
-      {selectedAgent && (() => {
-        const agent = agents.find(a => a.name === selectedAgent)!
-        return (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            className="mt-4 overflow-hidden rounded-xl border-2 border-violet-600 bg-violet-50 p-5"
-          >
-            <div className="flex items-center gap-2">
-              <span className="text-xl">{agent.icon}</span>
-              <h3 className="text-[16px] font-bold text-ink-900">{agent.label}</h3>
-            </div>
-            <p className="mt-2 text-[13px] leading-relaxed text-ink-700">{agent.howItWorks}</p>
-            <div className="mt-3">
-              <p className="label-mono text-violet-700 mb-1.5">señales que emite:</p>
-              <ul className="space-y-1">
-                {agent.signals.map((signal, si) => (
-                  <li key={si} className="flex items-center gap-2 text-[12px] text-ink-700">
-                    <Zap className="h-3 w-3 shrink-0 text-violet-500" />
-                    <span className="font-mono">{signal}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </motion.div>
-        )
-      })()}
-
-      {/* Resultado del análisis */}
-      {error && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="mt-4 rounded-xl border-2 border-rose-300 bg-rose-50 p-4"
-        >
-          <p className="text-[13px] font-medium text-rose-700">{error}</p>
-        </motion.div>
-      )}
-
-      {result && (
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mt-5 rounded-xl border-2 border-ink-900 bg-paper p-5 shadow-hard"
-        >
-          <div className="flex items-center justify-between">
-            <h3 className="text-[16px] font-bold text-ink-900">Resultado del Análisis</h3>
-            <span className={cn(
-              'rounded-full border px-3 py-1 font-mono text-[11px] font-bold uppercase',
-              severityColor[result.severity] || 'bg-ink-100 text-ink-600'
-            )}>
-              {result.severity} · {result.risk_score}/100
-            </span>
-          </div>
-
-          {result.is_partial && (
-            <p className="mt-2 text-[11px] font-medium text-clay-600">
-              ⚠️ Análisis parcial — algún agente no pudo ejecutarse
-            </p>
-          )}
-
-          {result.financial_impact > 0 && (
-            <p className="mt-2 text-[13px] text-ink-700">
-              💰 Impacto económico estimado: <span className="font-bold">${result.financial_impact.toLocaleString()}</span>
-            </p>
-          )}
-
-          {result.primary_reason && (
-            <p className="mt-1 text-[13px] text-ink-700">
-              🎯 Señal dominante: <span className="font-mono font-bold text-violet-700">{result.primary_reason}</span>
-            </p>
-          )}
-
-          {/* Señales por agente */}
-          <div className="mt-4 space-y-3">
-            {result.outcomes.map((outcome) => (
-              <div key={outcome.agent} className="rounded-lg border border-ink-200 p-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[12px] font-bold text-ink-900">{agentDisplayName(outcome.agent)}</span>
-                  <span className="font-mono text-[11px] font-bold text-violet-700">{outcome.score}/100</span>
-                </div>
-                {outcome.signals.length > 0 && (
-                  <ul className="mt-1.5 space-y-0.5">
-                    {outcome.signals.map((signal, si) => (
-                      <li key={si} className="flex items-center gap-2 text-[11px] text-ink-600">
-                        <Zap className="h-3 w-3 text-clay-500" />
-                        <span className="font-mono text-[9px] text-ink-400">[{signal.code}]</span>
-                        {signal.message}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            ))}
-          </div>
-        </motion.div>
-      )}
-
-      {/* ═══ Chat con Agentes ═══ */}
-      <AgentChat />
-    </div>
-  )
-}
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
