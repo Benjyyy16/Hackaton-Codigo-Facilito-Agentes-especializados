@@ -73,10 +73,28 @@ class Settings(BaseSettings):
     SUPABASE_JWT_SECRET: SecretStr | None = None
 
     # --- Jira ---------------------------------------------------------------------
-    JIRA_BASE_URL: str
-    JIRA_EMAIL: str
-    JIRA_API_TOKEN: SecretStr
-    JIRA_WEBHOOK_SECRET: SecretStr
+    JIRA_BASE_URL: str | None = None
+    JIRA_EMAIL: str | None = None
+    JIRA_API_TOKEN: SecretStr | None = None
+    JIRA_WEBHOOK_SECRET: SecretStr | None = None
+
+    # --- GitHub -------------------------------------------------------------------
+    GITHUB_TOKEN: SecretStr | None = None
+    GITHUB_WEBHOOK_SECRET: SecretStr | None = None
+    GITHUB_ORG: str | None = None
+
+    # --- Slack --------------------------------------------------------------------
+    SLACK_BOT_TOKEN: SecretStr | None = None
+    SLACK_WEBHOOK_URL: str | None = None
+    SLACK_CHANNEL: str | None = "#alerts"
+
+    # --- Vercel -------------------------------------------------------------------
+    VERCEL_TOKEN: SecretStr | None = None
+    VERCEL_TEAM_ID: str | None = None
+
+    # --- Notion -------------------------------------------------------------------
+    NOTION_TOKEN: SecretStr | None = None
+    NOTION_DATABASE_ID: str | None = None
 
     # --- Reglas de negocio --------------------------------------------------------
     RISK_ALERT_THRESHOLD: int = Field(default=70, ge=0, le=100)
@@ -89,14 +107,19 @@ class Settings(BaseSettings):
     ENV: Environment = Environment.DEVELOPMENT
     LOG_LEVEL: LogLevel = LogLevel.INFO
 
-    @field_validator("SUPABASE_URL", "JIRA_BASE_URL")
+    @field_validator("SUPABASE_URL")
     @classmethod
-    def _require_http_url(cls, value: str) -> str:
-        """Exige un URL absoluto y lo normaliza sin barra final.
+    def _require_supabase_url(cls, value: str) -> str:
+        candidate = value.strip()
+        if not candidate.startswith(("http://", "https://")):
+            raise ValueError("debe ser un URL absoluto que empiece por http:// o https://")
+        return candidate.rstrip("/")
 
-        Una barra final duplicada al concatenar rutas produce ``//`` y respuestas 404
-        difíciles de diagnosticar, así que se normaliza en el borde.
-        """
+    @field_validator("JIRA_BASE_URL", "SLACK_WEBHOOK_URL")
+    @classmethod
+    def _validate_http_url(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
         candidate = value.strip()
         if not candidate.startswith(("http://", "https://")):
             raise ValueError("debe ser un URL absoluto que empiece por http:// o https://")
@@ -104,7 +127,9 @@ class Settings(BaseSettings):
 
     @field_validator("JIRA_EMAIL")
     @classmethod
-    def _require_email_shape(cls, value: str) -> str:
+    def _require_email_shape(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
         candidate = value.strip()
         if "@" not in candidate:
             raise ValueError("debe ser una dirección de correo")

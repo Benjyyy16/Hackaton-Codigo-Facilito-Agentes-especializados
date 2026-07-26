@@ -25,7 +25,7 @@ logger = get_logger("supabase")
 
 # Tabla usada para la comprobación de salud. Se consulta con límite cero: interesa saber si
 # PostgREST responde, no traer datos.
-_HEALTH_PROBE_TABLE = "projects"
+_HEALTH_PROBE_TABLE = "workspaces"
 
 
 async def create_supabase_client(settings: Settings) -> AsyncClient:
