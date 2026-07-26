@@ -16,7 +16,7 @@ from typing import Final
 
 from fastapi import FastAPI, Request, Response
 
-from app.api.routes import auth, finance, health, integrations, providers as provider_routes
+from app.api.routes import auth, finance, health, integrations, oauth, providers as provider_routes
 from app.core.config import APP_VERSION, Settings, get_settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import configure_logging, get_logger, set_request_id
@@ -151,6 +151,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(auth.router)
     app.include_router(finance.router)
     app.include_router(integrations.router)
+    app.include_router(oauth.router)
     app.include_router(health.router)
     app.include_router(provider_routes.router)
 

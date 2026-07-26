@@ -96,6 +96,17 @@ class Settings(BaseSettings):
     NOTION_TOKEN: SecretStr | None = None
     NOTION_DATABASE_ID: str | None = None
 
+    # --- OAuth apps (para flujo OAuth de usuarios externos) ---------------------
+    APP_BASE_URL: str = "https://hackaton-codigo-facilito-agentes.onrender.com"
+    GITHUB_CLIENT_ID: str | None = None
+    GITHUB_CLIENT_SECRET: SecretStr | None = None
+    NOTION_CLIENT_ID: str | None = None
+    NOTION_CLIENT_SECRET: SecretStr | None = None
+    SLACK_CLIENT_ID: str | None = None
+    SLACK_CLIENT_SECRET: SecretStr | None = None
+    VERCEL_CLIENT_ID: str | None = None
+    VERCEL_CLIENT_SECRET: SecretStr | None = None
+
     # --- Reglas de negocio --------------------------------------------------------
     RISK_ALERT_THRESHOLD: int = Field(default=70, ge=0, le=100)
 
