@@ -120,6 +120,14 @@ class Settings(BaseSettings):
     #: Sin esta bandera, solo funcionan en development/test.
     DEMO_MODE_ENABLED: bool = False
 
+    # --- Arranque del esquema -----------------------------------------------------
+    # Cadena de conexion de Postgres. NO es la clave de servicio: la clave habla con
+    # PostgREST, que no ejecuta DDL. Solo se usa para aplicar db/schema.sql.
+    SUPABASE_DB_URL: SecretStr | None = None
+    # Sin este token, POST /admin/schema/apply responde 404. Ejecutar DDL desde HTTP
+    # requiere una autorizacion explicita, no la ausencia de una prohibicion.
+    SCHEMA_BOOTSTRAP_TOKEN: SecretStr | None = None
+
     # --- Reglas de negocio --------------------------------------------------------
     RISK_ALERT_THRESHOLD: int = Field(default=70, ge=0, le=100)
 
