@@ -603,42 +603,21 @@ function AgentChat() {
     setLoading(true)
 
     try {
-      // Ejecutar análisis con el texto como título del issue
-      const tokens = getTokens()
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      if (tokens?.access_token) headers['Authorization'] = `Bearer ${tokens.access_token}`
 
-      const res = await fetch('https://hackaton-codigo-facilito-agentes.onrender.com/agents/analyze', {
+      const res = await fetch('https://hackaton-codigo-facilito-agentes.onrender.com/agents/chat', {
         method: 'POST',
         headers,
         body: JSON.stringify({
-          project_key: 'CHAT',
-          issue_key: 'CHAT-' + Date.now(),
-          title: userMsg,
-          due_date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-          estimated_hours: 20,
-          hourly_cost: 60,
+          message: userMsg,
+          history: messages.map(m => ({ role: m.role === 'agent' ? 'assistant' : 'user', content: m.content })),
         }),
       })
 
       if (!res.ok) throw new Error('Error del servidor')
       const data = await res.json()
 
-      // Formatear respuesta de los agentes
-      const signals = data.outcomes
-        .flatMap((o: { agent: string; signals: Array<{ message: string }> }) =>
-          o.signals.map((s: { message: string }) => `• **${o.agent}**: ${s.message}`)
-        )
-        .join('\n')
-
-      const response = [
-        `📊 **Análisis de riesgo:** ${data.risk_score}/100 (${data.severity})`,
-        data.financial_impact > 0 ? `💰 **Impacto:** $${data.financial_impact.toLocaleString()}` : '',
-        data.primary_reason ? `🎯 **Razón principal:** ${data.primary_reason}` : '',
-        signals ? `\n**Señales detectadas:**\n${signals}` : 'No se detectaron señales de riesgo.',
-      ].filter(Boolean).join('\n')
-
-      setMessages(prev => [...prev, { role: 'agent', content: response, agent: 'orchestrator' }])
+      setMessages(prev => [...prev, { role: 'agent', content: data.response, agent: data.agent || 'orchestrator' }])
     } catch {
       setMessages(prev => [...prev, {
         role: 'agent',
