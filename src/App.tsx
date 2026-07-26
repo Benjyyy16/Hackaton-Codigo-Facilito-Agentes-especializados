@@ -9,6 +9,7 @@ import Landing from '@/pages/Landing'
 const Dashboard = lazy(() => import('@/pages/Dashboard'))
 const ProjectBoard = lazy(() => import('@/pages/ProjectBoard'))
 const Profile = lazy(() => import('@/pages/Profile'))
+const AuthCallback = lazy(() => import('@/pages/AuthCallback'))
 
 /** Bloquea rutas de la app si no hay sesión. */
 function Protected({ children }: { children: ReactNode }) {
@@ -35,6 +36,7 @@ function Router() {
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
           <Route path="/" element={<Landing />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
           <Route
             path="/app"
             element={

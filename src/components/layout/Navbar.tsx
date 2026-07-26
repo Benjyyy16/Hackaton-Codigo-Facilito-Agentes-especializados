@@ -152,7 +152,7 @@ export function Navbar({
             <div className="container-page relative flex h-[66px] items-center justify-between border-b-2 border-ink-900">
               <span className="flex items-center gap-2.5">
                 <OrquestaMark className="h-[34px] w-[34px]" />
-                <span className="text-[16.5px] font-extrabold text-ink-900">Orquesta</span>
+                <span className="text-[16.5px] font-extrabold text-ink-900">Datgent</span>
               </span>
               <button
                 onClick={() => setMobileOpen(false)}

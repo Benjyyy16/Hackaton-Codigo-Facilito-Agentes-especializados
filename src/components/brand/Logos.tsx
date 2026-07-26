@@ -212,55 +212,14 @@ export function StripeLogo({ className = 'h-5 w-5', ...props }: LogoProps) {
 /* Marca propia                                                        */
 /* ------------------------------------------------------------------ */
 /**
- * Marca propia: cuadrícula 3x3 (los módulos del plano) con el nodo central
- * verde = fuente de verdad. Borde duro, coherente con el resto del sistema.
+ * Marca Datgent: logo del proyecto.
  */
-export function OrquestaMark({ className = 'h-8 w-8', ...props }: LogoProps) {
+export function OrquestaMark({ className = 'h-8 w-8' }: LogoProps) {
   return (
-    <svg viewBox="0 0 40 40" className={className} role="img" aria-label="Orquesta" {...props}>
-      <rect
-        x="1.25"
-        y="1.25"
-        width="37.5"
-        height="37.5"
-        rx="9"
-        fill="#7C3AED"
-        stroke="#0D0B16"
-        strokeWidth="2.5"
-      />
-      {/* módulos */}
-      {[
-        [10, 10],
-        [20, 10],
-        [30, 10],
-        [10, 20],
-        [30, 20],
-        [10, 30],
-        [20, 30],
-        [30, 30],
-      ].map(([cx, cy]) => (
-        <rect
-          key={`${cx}-${cy}`}
-          x={cx - 2.6}
-          y={cy - 2.6}
-          width="5.2"
-          height="5.2"
-          rx="1"
-          fill="#FFFFFF"
-          opacity={cx === 20 || cy === 20 ? 0.95 : 0.55}
-        />
-      ))}
-      {/* nodo central: fuente de verdad */}
-      <rect
-        x="15.6"
-        y="15.6"
-        width="8.8"
-        height="8.8"
-        rx="1.6"
-        fill="#3ECF8E"
-        stroke="#0D0B16"
-        strokeWidth="2"
-      />
-    </svg>
+    <img
+      src="/datgent-logo.png"
+      alt="Datgent"
+      className={`${className} rounded-lg object-contain`}
+    />
   )
 }

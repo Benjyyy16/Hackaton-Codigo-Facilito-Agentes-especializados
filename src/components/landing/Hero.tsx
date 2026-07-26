@@ -28,7 +28,7 @@ export function Hero({
           transition={{ delay: 1.2, duration: 0.7 }}
           className="label-mono -rotate-90 whitespace-nowrap text-ink-300"
         >
-          Orquesta / v0.1 / plano general
+          Datgent / v0.1 / plano general
         </motion.div>
       </div>
 
@@ -84,7 +84,7 @@ export function Hero({
                 <span className="h-2 w-2 rounded-full bg-white/25" />
                 <span className="h-2 w-2 rounded-full bg-mint-500" />
                 <span className="ml-2 font-mono text-[10px] uppercase tracking-wider text-white/40">
-                  orquesta · bitácora
+                  datgent · bitácora
                 </span>
               </div>
               <div className="px-3.5 py-3 font-mono text-[12.5px] leading-relaxed text-mint-300">

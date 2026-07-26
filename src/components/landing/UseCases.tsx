@@ -91,10 +91,10 @@ export function UseCases() {
                           />
                         </svg>
                       </div>
-                      {/* Con Orquesta */}
+                      {/* Con Datgent */}
                       <div className="flex gap-4 border-l-[3px] border-mint-500 pl-4">
                         <div>
-                          <p className="label-mono mb-1 text-mint-700">con orquesta</p>
+                          <p className="label-mono mb-1 text-mint-700">con datgent</p>
                           <p className="text-[14px] leading-relaxed text-ink-800">{uc.solution}</p>
                         </div>
                       </div>

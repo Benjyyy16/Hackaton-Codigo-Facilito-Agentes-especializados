@@ -50,7 +50,7 @@ export function Integrations() {
               <span className="italic text-violet-600">Nosotros la leemos.</span>
             </>
           }
-          subtitle="No migres nada. Orquesta se monta encima de tu stack y deja el repositorio como fuente de verdad."
+          subtitle="No migres nada. Datgent se monta encima de tu stack y deja el repositorio como fuente de verdad."
         />
 
         {/* Grilla de fichas con logos originales */}

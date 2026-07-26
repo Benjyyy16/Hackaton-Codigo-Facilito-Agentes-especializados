@@ -3,7 +3,7 @@ import { OrquestaMark, GitHubLogo, SupabaseLogo } from '@/components/brand/Logos
 const columns = [
   { title: 'Producto', links: ['Tablero canvas', 'Agentes', 'Conexiones', 'Reportes'] },
   { title: 'Recursos', links: ['Documentación', 'Changelog', 'Estado', 'Seguridad'] },
-  { title: 'Compañía', links: ['Sobre Orquesta', 'Privacidad', 'Términos', 'Contacto'] },
+  { title: 'Compañía', links: ['Sobre Datgent', 'Privacidad', 'Términos', 'Contacto'] },
 ]
 
 export function Footer() {
@@ -62,7 +62,7 @@ export function Footer() {
 
         <div className="mt-12 flex flex-col gap-3 border-t-2 border-dashed border-ink-200 pt-6 sm:flex-row sm:items-center sm:justify-between">
           <p className="font-mono text-[11px] text-ink-400">
-            © {new Date().getFullYear()} Orquesta · demo de hackathon
+            © {new Date().getFullYear()} Datgent · demo de hackathon
           </p>
           <p className="max-w-md font-mono text-[10px] leading-relaxed text-ink-300">
             GitHub, Supabase, Vercel, Slack, Linear, Notion, Figma y Stripe son marcas de sus

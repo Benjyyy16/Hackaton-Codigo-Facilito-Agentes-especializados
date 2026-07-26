@@ -357,7 +357,7 @@ export const faqs = [
   },
   {
     q: '¿Necesito mover mi stack?',
-    a: 'No. Orquesta se conecta por encima de lo que ya usás: GitHub, Supabase, Vercel, Slack. Tu repositorio sigue siendo la fuente de verdad.',
+    a: 'No. Datgent se conecta por encima de lo que ya usás: GitHub, Supabase, Vercel, Slack. Tu repositorio sigue siendo la fuente de verdad.',
   },
   {
     q: '¿Un tablero por proyecto?',

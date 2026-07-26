@@ -148,7 +148,7 @@ export function AppShell({
         <div className="sticky top-0 z-40 flex h-[58px] items-center justify-between border-b-2 border-ink-900 bg-paper/95 px-4 backdrop-blur-md lg:hidden">
           <Link to="/app" className="flex items-center gap-2">
             <OrquestaMark className="h-7 w-7" />
-            <span className="text-[14.5px] font-extrabold text-ink-900">Orquesta</span>
+            <span className="text-[14.5px] font-extrabold text-ink-900">Datgent</span>
           </Link>
           <div className="flex items-center gap-2">
             {user?.isDemo && (

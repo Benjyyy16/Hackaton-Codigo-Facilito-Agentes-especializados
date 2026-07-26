@@ -47,7 +47,7 @@ export default function ProjectBoard() {
   async function handleConnect() {
     setConnecting(true)
     await new Promise((r) => setTimeout(r, 1100))
-    connectRepo(project!.id, `orquesta-demo/${project!.name.toLowerCase().replace(/\s+/g, '-')}`)
+    connectRepo(project!.id, `datgent-demo/${project!.name.toLowerCase().replace(/\s+/g, '-')}`)
     setConnecting(false)
   }
 

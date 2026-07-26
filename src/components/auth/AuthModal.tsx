@@ -15,6 +15,7 @@ import {
 import { Button } from '@/components/ui/Button'
 import { GoogleLogo, GitHubLogo, OrquestaMark } from '@/components/brand/Logos'
 import { DEMO_CREDENTIALS, useAppStore } from '@/store/AppStore'
+import { api } from '@/lib/api'
 import { cn } from '@/lib/cn'
 
 type Mode = 'login' | 'signup'
@@ -112,10 +113,10 @@ export function AuthModal({
     }
   }
 
-  /** OAuth no disponible en backend — redirigir al formulario de login */
-  function handleOAuth(_provider: 'google' | 'github') {
-    setErrors({ email: 'OAuth no disponible aún. Usá email y contraseña.' })
-    setTouched(true)
+  /** Redirige al backend para login con OAuth */
+  function handleOAuth(provider: 'google' | 'github') {
+    setLoading('oauth')
+    window.location.href = api.oauthLoginUrl(provider)
   }
 
   async function handleDemo() {
@@ -192,7 +193,7 @@ export function AuthModal({
                         id={ids.title}
                         className="font-display text-[26px] leading-none tracking-tightest text-ink-900"
                       >
-                        {mode === 'login' ? 'Ingresá a Orquesta' : 'Creá tu cuenta'}
+                        {mode === 'login' ? 'Ingresá a Datgent' : 'Creá tu cuenta'}
                       </h2>
                       <p className="mt-2 text-[13px] leading-relaxed text-ink-500">
                         {mode === 'login'

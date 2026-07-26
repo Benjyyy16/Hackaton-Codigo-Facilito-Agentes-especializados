@@ -11,12 +11,12 @@ import type { Collaborator, Project, Task, TaskStatus, User } from './types'
 import { seedCollaborators, seedProjects } from './seed'
 import { api, saveTokens, clearTokens, getTokens, type ApiError } from '../lib/api'
 
-const STORAGE_KEY = 'orquesta.session.v1'
+const STORAGE_KEY = 'datgent.session.v1'
 
 /** Credenciales de la cuenta de demostración, visibles a propósito. */
 export const DEMO_CREDENTIALS = {
-  email: 'demo@orquesta.dev',
-  password: 'orquesta2026',
+  email: 'usuariohacktoncodfacilito@datgent.dev',
+  password: 'datgent2026',
 } as const
 
 interface AppStore {
@@ -96,7 +96,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const signInDemo = useCallback(() => {
     setUser({
       id: 'u_demo',
-      name: 'Ramón Ortega',
+      name: 'Usuario Hackton CodFacilito',
       email: DEMO_CREDENTIALS.email,
       specialty: 'Full-stack · React + Postgres',
       title: 'Tech Lead · cuenta demo',

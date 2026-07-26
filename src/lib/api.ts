@@ -1,6 +1,6 @@
 const BASE_URL = 'https://hackaton-codigo-facilito-agentes.onrender.com'
 
-const TOKEN_KEY = 'orquesta.tokens.v1'
+const TOKEN_KEY = 'datgent.tokens.v1'
 
 export interface AuthTokens {
   access_token: string
@@ -106,5 +106,10 @@ export const api = {
 
   health() {
     return request<{ status: string }>('/health')
+  },
+
+  /** Redirige al usuario al provider OAuth para login */
+  oauthLoginUrl(provider: 'github' | 'google') {
+    return `${BASE_URL}/auth/oauth/${provider}/login`
   },
 }
