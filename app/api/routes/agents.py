@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Annotated
-from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -15,7 +14,7 @@ from app.agents.orchestrator import OrchestratorAgent
 from app.api.deps import get_settings_dep
 from app.core.config import Settings
 from app.schemas.analysis import AnalysisResult, CommitmentSnapshot, ProjectSnapshot
-from app.schemas.events import ExternalEvent
+from app.schemas.events import ExternalEvent, EventKind, ProviderName
 from app.services.auth_service import AuthService, AuthenticationError
 
 router = APIRouter(prefix="/agents", tags=["agents"])
@@ -100,22 +99,22 @@ async def run_analysis(
     due_date = None
     if request.due_date:
         try:
-            due_date = datetime.fromisoformat(request.due_date)
+            due_date = datetime.fromisoformat(request.due_date.replace("Z", "+00:00"))
         except ValueError:
             pass
 
     event = ExternalEvent(
-        id=uuid4(),
-        provider="demo",
+        provider=ProviderName.JIRA,
+        workspace_key=request.project_key,
         external_id=request.issue_key,
-        event_type="issue_updated",
+        external_key=request.issue_key,
+        kind=EventKind.WORK_ITEM_UPDATED,
         occurred_at=now,
-        payload={
-            "key": request.issue_key,
-            "summary": request.title,
-            "status": "In Progress",
-            "assignee": "user",
-        },
+        title=request.title,
+        state="In Progress",
+        owner="user",
+        due_date=due_date,
+        estimated_hours=request.estimated_hours,
     )
 
     commitment = CommitmentSnapshot(
