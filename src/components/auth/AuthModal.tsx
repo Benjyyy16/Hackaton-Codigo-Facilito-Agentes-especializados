@@ -115,15 +115,27 @@ export function AuthModal({
   /** Login con OAuth provider — usa el backend directamente con email del provider */
   async function handleOAuth(provider: 'google' | 'github') {
     setLoading('oauth')
+    setErrors({})
+    setTouched(false)
     try {
       const providerEmail = provider === 'github'
         ? 'github-user@datgent.dev'
         : 'google-user@datgent.dev'
       await signIn(providerEmail, 'OAuthLogin2026!', provider === 'google' ? 'google' : 'password')
       onSuccess?.()
-    } catch {
-      setErrors({ email: `Error al conectar con ${provider === 'github' ? 'GitHub' : 'Google'}. Intentá con email.` })
-      setTouched(true)
+    } catch (_err) {
+      // Si signIn falla, intentar signUp automático
+      try {
+        const providerEmail = provider === 'github'
+          ? 'github-user@datgent.dev'
+          : 'google-user@datgent.dev'
+        const providerName = provider === 'github' ? 'GitHub User' : 'Google User'
+        await signUp({ name: providerName, email: providerEmail, password: 'OAuthLogin2026!' })
+        onSuccess?.()
+      } catch {
+        setErrors({ email: `Error al conectar con ${provider === 'github' ? 'GitHub' : 'Google'}. Intentá con email.` })
+        setTouched(true)
+      }
     } finally {
       setLoading(false)
     }
