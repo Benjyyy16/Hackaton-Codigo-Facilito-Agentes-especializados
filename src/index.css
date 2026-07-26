@@ -1,0 +1,208 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-paper-100 text-ink-900 font-sans antialiased;
+    overflow-x: hidden;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-violet-600 ring-offset-2 ring-offset-paper;
+  }
+
+  ::selection {
+    @apply bg-violet-600 text-white;
+  }
+
+  ::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-paper-200;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full border-[3px] border-solid border-paper-200 bg-ink-300;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-violet-500;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  .container-page {
+    @apply mx-auto w-full max-w-[1180px] px-5 sm:px-8;
+  }
+
+  /* ---- Etiquetas técnicas monoespaciadas ---- */
+  .label-mono {
+    @apply font-mono text-[10.5px] font-medium uppercase tracking-[0.16em] text-ink-500;
+  }
+
+  /* ---- Tarjeta base: borde duro + sombra desplazada ---- */
+  .card {
+    @apply rounded-xl border-2 border-ink-900 bg-paper;
+  }
+  .card-hard {
+    @apply card shadow-hard;
+  }
+  .card-soft {
+    @apply rounded-xl border border-ink-200 bg-paper shadow-lift;
+  }
+
+  /* ---- Esquinas de plano técnico ---- */
+  .corners {
+    position: relative;
+  }
+  .corners::before,
+  .corners::after {
+    content: '';
+    position: absolute;
+    width: 13px;
+    height: 13px;
+    border: 2px solid theme('colors.violet.600');
+    pointer-events: none;
+  }
+  .corners::before {
+    top: -2px;
+    left: -2px;
+    border-right: 0;
+    border-bottom: 0;
+  }
+  .corners::after {
+    right: -2px;
+    bottom: -2px;
+    border-left: 0;
+    border-top: 0;
+  }
+
+  /* ---- Renglones de cuaderno para bloques de datos ---- */
+  .ruled {
+    background-image: theme('backgroundImage.rule');
+    background-position: 0 4px;
+  }
+
+  /* ---- Sello rotado ---- */
+  .stamp {
+    @apply inline-flex items-center gap-1.5 rounded-md border-2 px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.14em];
+    transform: rotate(-7deg);
+  }
+
+  /* ---- Subrayado dibujado a mano ---- */
+  .marker {
+    @apply relative inline-block;
+  }
+  .marker > svg {
+    @apply pointer-events-none absolute -bottom-2 left-0 w-full;
+  }
+
+  /* ---- Textura de papel ---- */
+  .paper-grain::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.5;
+    mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23g)' opacity='.045'/%3E%3C/svg%3E");
+  }
+}
+
+@layer utilities {
+  .mask-fade-x {
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 9%, #000 91%, transparent);
+    mask-image: linear-gradient(to right, transparent, #000 9%, #000 91%, transparent);
+  }
+  .mask-fade-b {
+    -webkit-mask-image: linear-gradient(to bottom, #000 52%, transparent);
+    mask-image: linear-gradient(to bottom, #000 52%, transparent);
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+  .preserve-3d {
+    transform-style: preserve-3d;
+  }
+}
+
+/* ================= React Flow: tema claro ================= */
+.react-flow__attribution {
+  display: none;
+}
+.react-flow__edge-path {
+  stroke: #bdb8cc;
+  stroke-width: 1.75;
+}
+.react-flow__edge.animated .react-flow__edge-path {
+  stroke: #7c3aed;
+  stroke-width: 2;
+}
+.react-flow__handle {
+  width: 9px;
+  height: 9px;
+  border: 2px solid #0d0b16;
+  background: #fff;
+  border-radius: 2px;
+}
+.react-flow__handle:hover {
+  background: #3ecf8e;
+}
+.react-flow__controls {
+  box-shadow: 3px 3px 0 0 #0d0b16 !important;
+  border: 2px solid #0d0b16;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.react-flow__controls-button {
+  background: #fff;
+  border-bottom: 1px solid #ddd9e6;
+  color: #2e2a42;
+  fill: #2e2a42;
+  width: 26px;
+  height: 26px;
+}
+.react-flow__controls-button:hover {
+  background: #f5f1ff;
+  color: #7c3aed;
+  fill: #7c3aed;
+}
+.react-flow__minimap {
+  background: #fff;
+  border: 2px solid #0d0b16;
+  border-radius: 10px;
+  box-shadow: 3px 3px 0 0 #0d0b16;
+}
+.react-flow__node {
+  cursor: grab;
+}
+.react-flow__node:active {
+  cursor: grabbing;
+}
+.react-flow__node.selected > * {
+  outline: 2px solid #3ecf8e;
+  outline-offset: 3px;
+  border-radius: 12px;
+}
