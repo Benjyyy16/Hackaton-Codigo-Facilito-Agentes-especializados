@@ -70,6 +70,7 @@ class Settings(BaseSettings):
     SUPABASE_URL: str
     SUPABASE_SERVICE_ROLE_KEY: SecretStr
     SUPABASE_ANON_KEY: SecretStr | None = None
+    SUPABASE_JWT_SECRET: SecretStr | None = None
 
     # --- Jira ---------------------------------------------------------------------
     JIRA_BASE_URL: str

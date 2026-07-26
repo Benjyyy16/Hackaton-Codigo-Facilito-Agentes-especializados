@@ -32,7 +32,13 @@ class AuthService:
 
     def __init__(self, settings: Settings):
         self.settings = settings
-        self.jwt_secret = settings.SUPABASE_JWT_SECRET or secrets.token_urlsafe(32)
+        raw_secret = settings.SUPABASE_JWT_SECRET
+        if raw_secret is None:
+            self.jwt_secret = secrets.token_urlsafe(32)
+        elif hasattr(raw_secret, "get_secret_value"):
+            self.jwt_secret = raw_secret.get_secret_value()
+        else:
+            self.jwt_secret = str(raw_secret)
 
     def hash_password(self, password: str) -> str:
         """Hashea una contraseña con SHA256 + salt.
