@@ -1,14 +1,13 @@
-"""Traducción de los payloads de Jira al modelo interno.
+"""Traducción de payloads de Jira al evento del dominio.
 
-Único punto del sistema que conoce la forma de los datos de Jira. Todo lo de fuera trabaja con
-``NormalizedEvent``.
+Único punto del sistema que conoce la forma de los datos de Jira. Reemplaza al normalizador
+anterior, que producía un modelo con nombres de campo de Jira; ahora produce ``ExternalEvent``,
+que es agnóstico.
 
 Dos rarezas de Jira que se absorben aquí:
 
 * ``timeoriginalestimate`` viene en **segundos**, no en horas.
-* Las marcas temporales llegan con desplazamiento sin dos puntos (``+0000``), que
-  ``datetime.fromisoformat`` no aceptaba antes de Python 3.11 y que sigue siendo cómodo
-  normalizar de forma explícita.
+* El cuerpo de los comentarios llega en Atlassian Document Format, un árbol de nodos.
 """
 
 from __future__ import annotations
@@ -18,18 +17,21 @@ from typing import Any, Final
 
 from app.core.exceptions import UnsupportedEventError
 from app.core.logging import get_logger
-from app.schemas.jira import (
-    WEBHOOK_EVENT_MAP,
-    ChangedField,
-    EventType,
-    NormalizedEvent,
-)
+from app.schemas.events import EventKind, ExternalEvent, FieldChange, ProviderName
 
-logger = get_logger("jira.normalizer")
+logger = get_logger("jira.mapper")
 
 SECONDS_PER_HOUR: Final[float] = 3600.0
 
-#: Formatos de fecha que Jira emite, en orden de probabilidad.
+#: Correspondencia entre el evento del webhook de Jira y el vocabulario del dominio. Lo que no
+#: está aquí se descarta de forma explícita (RF-5.4).
+WEBHOOK_EVENT_MAP: Final[dict[str, EventKind]] = {
+    "jira:issue_created": EventKind.WORK_ITEM_CREATED,
+    "jira:issue_updated": EventKind.WORK_ITEM_UPDATED,
+    "comment_created": EventKind.COMMENT_ADDED,
+    "jira:comment_created": EventKind.COMMENT_ADDED,
+}
+
 _DATE_FORMATS: Final[tuple[str, ...]] = (
     "%Y-%m-%dT%H:%M:%S.%f%z",
     "%Y-%m-%dT%H:%M:%S%z",
@@ -40,8 +42,8 @@ _DATE_FORMATS: Final[tuple[str, ...]] = (
 def parse_jira_datetime(value: Any) -> datetime | None:
     """Interpreta una marca temporal de Jira y la devuelve en UTC.
 
-    Devuelve ``None`` en lugar de elevar: un campo de fecha ilegible no debe tumbar la
-    ingesta de un evento por lo demás válido.
+    Devuelve ``None`` en lugar de elevar: un campo de fecha ilegible no debe tumbar la ingesta
+    de un evento por lo demás válido.
     """
     if value is None or value == "":
         return None
@@ -54,7 +56,7 @@ def parse_jira_datetime(value: Any) -> datetime | None:
 
     text = value.strip()
     try:
-        parsed = datetime.fromisoformat(text)
+        parsed: datetime | None = datetime.fromisoformat(text)
     except ValueError:
         parsed = None
         for pattern in _DATE_FORMATS:
@@ -73,7 +75,7 @@ def parse_jira_datetime(value: Any) -> datetime | None:
 def seconds_to_hours(value: Any) -> float | None:
     """Convierte segundos de Jira a horas.
 
-    Jira expresa ``timeoriginalestimate`` en segundos. Tratarlo como horas inflaría la
+    Jira expresa ``timeoriginalestimate`` en segundos. Tratarlo como horas multiplicaría la
     estimación por 3600 y con ella el impacto económico.
     """
     if value is None:
@@ -87,25 +89,23 @@ def seconds_to_hours(value: Any) -> float | None:
     return round(seconds / SECONDS_PER_HOUR, 2)
 
 
-def _extract_display_name(node: Any) -> str | None:
-    """Saca el nombre visible de un usuario de Jira."""
+def _display_name(node: Any) -> str | None:
     if not isinstance(node, dict):
         return None
     return node.get("displayName") or node.get("name") or node.get("emailAddress")
 
 
-def _extract_nested_name(node: Any) -> str | None:
-    """Saca ``name`` de una estructura anidada como ``status`` o ``priority``."""
+def _nested_name(node: Any) -> str | None:
     if not isinstance(node, dict):
         return None
     return node.get("name")
 
 
-def _extract_project_key(fields: dict[str, Any], issue_key: str) -> str:
+def _workspace_key(fields: dict[str, Any], issue_key: str) -> str:
     """Determina la clave del proyecto.
 
-    Si el payload no trae el proyecto, se deduce del prefijo de la clave del issue, que en
-    Jira es siempre ``PROYECTO-numero``.
+    Si el payload no la trae, se deduce del prefijo de la clave del issue, que en Jira es
+    siempre ``PROYECTO-numero``.
     """
     project = fields.get("project")
     if isinstance(project, dict) and project.get("key"):
@@ -113,25 +113,8 @@ def _extract_project_key(fields: dict[str, Any], issue_key: str) -> str:
     return issue_key.split("-", 1)[0] if "-" in issue_key else issue_key
 
 
-def _extract_comment_body(payload: dict[str, Any]) -> str | None:
-    """Extrae el texto del comentario.
-
-    La API v3 devuelve el cuerpo en Atlassian Document Format, un árbol de nodos. Se recorre
-    para quedarse solo con el texto, que es lo único que el análisis necesita.
-    """
-    comment = payload.get("comment")
-    if not isinstance(comment, dict):
-        return None
-    body = comment.get("body")
-    if isinstance(body, str):
-        return body
-    if isinstance(body, dict):
-        return _flatten_adf(body) or None
-    return None
-
-
 def _flatten_adf(node: Any) -> str:
-    """Aplana un documento ADF a texto llano."""
+    """Aplana un documento Atlassian Document Format a texto llano."""
     if isinstance(node, dict):
         if node.get("type") == "text" and isinstance(node.get("text"), str):
             return node["text"]
@@ -147,7 +130,19 @@ def _flatten_adf(node: Any) -> str:
     return ""
 
 
-def _extract_changed_fields(payload: dict[str, Any]) -> list[ChangedField]:
+def _comment_text(payload: dict[str, Any]) -> str | None:
+    comment = payload.get("comment")
+    if not isinstance(comment, dict):
+        return None
+    body = comment.get("body")
+    if isinstance(body, str):
+        return body
+    if isinstance(body, dict):
+        return _flatten_adf(body) or None
+    return None
+
+
+def _changes(payload: dict[str, Any]) -> list[FieldChange]:
     """Traduce el ``changelog`` del webhook a la lista de campos modificados."""
     changelog = payload.get("changelog")
     if not isinstance(changelog, dict):
@@ -156,7 +151,7 @@ def _extract_changed_fields(payload: dict[str, Any]) -> list[ChangedField]:
     if not isinstance(items, list):
         return []
 
-    changed: list[ChangedField] = []
+    changed: list[FieldChange] = []
     for item in items:
         if not isinstance(item, dict):
             continue
@@ -164,7 +159,7 @@ def _extract_changed_fields(payload: dict[str, Any]) -> list[ChangedField]:
         if not field_name:
             continue
         changed.append(
-            ChangedField(
+            FieldChange(
                 field=str(field_name),
                 from_value=_stringify(item.get("fromString") or item.get("from")),
                 to_value=_stringify(item.get("toString") or item.get("to")),
@@ -174,37 +169,31 @@ def _extract_changed_fields(payload: dict[str, Any]) -> list[ChangedField]:
 
 
 def _stringify(value: Any) -> str | None:
-    if value is None:
-        return None
-    return str(value)
+    return None if value is None else str(value)
 
 
-def _resolve_occurred_at(
-    payload: dict[str, Any], fields: dict[str, Any], event_type: EventType
+def _occurred_at(
+    payload: dict[str, Any], fields: dict[str, Any], kind: EventKind
 ) -> datetime:
     """Determina el instante del cambio.
 
-    Es una pieza sensible: forma parte de la huella de deduplicación, así que debe ser
-    estable para un mismo evento. Se prefiere el dato más específico disponible y, como
-    último recurso, se recurre al instante actual, que rompería la idempotencia pero evita
-    descartar el evento.
+    Forma parte de la huella de deduplicación, así que la precedencia es explícita:
+
+    1. ``timestamp`` del webhook, el dato más fiel al momento del cambio, que Jira repite en los
+       reintentos de la misma entrega.
+    2. La marca del comentario, más precisa que la del issue cuando el evento es un comentario.
+    3. ``updated`` y ``created`` del issue, que es la vía de la sincronización por consulta y la
+       que hace que repetirla sin cambios produzca la misma huella.
     """
-    # 1. ``timestamp`` del webhook, en milisegundos desde época. Es el dato más fiel al
-    #    momento del cambio y Jira lo repite en los reintentos de la misma entrega, lo que
-    #    mantiene estable la huella.
     timestamp = payload.get("timestamp")
     if isinstance(timestamp, (int, float)) and not isinstance(timestamp, bool):
         return datetime.fromtimestamp(timestamp / 1000, tz=UTC)
 
-    # 2. Para un comentario, su propia marca temporal es más precisa que la del issue.
     candidates: list[Any] = []
-    if event_type is EventType.COMMENT_CREATED:
+    if kind is EventKind.COMMENT_ADDED:
         comment = payload.get("comment")
         if isinstance(comment, dict):
             candidates.extend([comment.get("updated"), comment.get("created")])
-
-    # 3. Estado del issue: es la vía que usa la sincronización por JQL, y la que hace que
-    #    repetirla sin cambios produzca la misma huella.
     candidates.extend([fields.get("updated"), fields.get("created")])
 
     for candidate in candidates:
@@ -212,51 +201,48 @@ def _resolve_occurred_at(
         if parsed is not None:
             return parsed
 
-    logger.warning(
-        "Evento de Jira sin marca temporal utilizable; se usa el instante actual"
-    )
+    logger.warning("Evento de Jira sin marca temporal utilizable; se usa el instante actual")
     return datetime.now(UTC)
 
 
-def _build_event(
-    *,
-    payload: dict[str, Any],
-    issue: dict[str, Any],
-    event_type: EventType,
-) -> NormalizedEvent:
-    """Construye el evento normalizado a partir del issue y del payload completo."""
-    fields = issue.get("fields") if isinstance(issue.get("fields"), dict) else {}
-    fields = fields or {}
+def _build(
+    *, payload: dict[str, Any], issue: dict[str, Any], kind: EventKind, base_url: str | None
+) -> ExternalEvent:
+    raw_fields = issue.get("fields")
+    fields: dict[str, Any] = raw_fields if isinstance(raw_fields, dict) else {}
     issue_key = str(issue.get("key") or "")
 
-    return NormalizedEvent(
-        jira_issue_id=str(issue.get("id") or issue_key),
-        jira_issue_key=issue_key,
-        project_key=_extract_project_key(fields, issue_key),
-        event_type=event_type,
-        occurred_at=_resolve_occurred_at(payload, fields, event_type),
-        summary=fields.get("summary"),
-        status=_extract_nested_name(fields.get("status")),
-        assignee=_extract_display_name(fields.get("assignee")),
-        priority=_extract_nested_name(fields.get("priority")),
+    return ExternalEvent(
+        provider=ProviderName.JIRA,
+        workspace_key=_workspace_key(fields, issue_key),
+        external_id=str(issue.get("id") or issue_key),
+        external_key=issue_key,
+        kind=kind,
+        occurred_at=_occurred_at(payload, fields, kind),
+        title=fields.get("summary"),
+        state=_nested_name(fields.get("status")),
+        owner=_display_name(fields.get("assignee")),
+        priority=_nested_name(fields.get("priority")),
         due_date=parse_jira_datetime(fields.get("duedate")),
         estimated_hours=seconds_to_hours(fields.get("timeoriginalestimate")),
         labels=[str(label) for label in (fields.get("labels") or [])],
-        changed_fields=_extract_changed_fields(payload),
-        comment_body=_extract_comment_body(payload),
+        changes=_changes(payload),
+        comment=_comment_text(payload),
+        url=f"{base_url}/browse/{issue_key}" if base_url and issue_key else None,
         raw_payload=payload,
     )
 
 
-def normalize_webhook_payload(payload: dict[str, Any]) -> NormalizedEvent:
-    """Convierte un payload de webhook en un evento normalizado.
+def map_webhook_payload(
+    payload: dict[str, Any], *, base_url: str | None = None
+) -> ExternalEvent:
+    """Convierte un payload de webhook en un evento del dominio.
 
-    Eleva ``UnsupportedEventError`` cuando el tipo no está soportado, que la ruta traduce a
-    ``202`` y descarta de forma explícita (RF-5.4).
+    Eleva ``UnsupportedEventError`` cuando el tipo no interesa, que la ruta traduce a ``202``.
     """
     raw_event = payload.get("webhookEvent") or payload.get("issue_event_type_name")
-    event_type = WEBHOOK_EVENT_MAP.get(str(raw_event)) if raw_event else None
-    if event_type is None:
+    kind = WEBHOOK_EVENT_MAP.get(str(raw_event)) if raw_event else None
+    if kind is None:
         raise UnsupportedEventError(
             f"Tipo de evento no soportado: {raw_event}",
             details={"webhook_event": str(raw_event)},
@@ -269,22 +255,22 @@ def normalize_webhook_payload(payload: dict[str, Any]) -> NormalizedEvent:
             details={"webhook_event": str(raw_event)},
         )
 
-    return _build_event(payload=payload, issue=issue, event_type=event_type)
+    return _build(payload=payload, issue=issue, kind=kind, base_url=base_url)
 
 
-def normalize_issue(issue: dict[str, Any]) -> NormalizedEvent:
-    """Convierte un issue de una búsqueda JQL en un evento normalizado (RF-4.4).
+def map_issue(issue: dict[str, Any], *, base_url: str | None = None) -> ExternalEvent:
+    """Convierte un issue de una búsqueda JQL en un evento del dominio (RF-4.4).
 
-    La sincronización inicial no observa cambios, sino el estado actual, así que el evento se
-    clasifica como actualización. Su instante es el ``updated`` del issue, lo que hace la
-    sincronización idempotente: repetirla sin cambios en Jira produce la misma huella y por
-    tanto el mismo duplicado (RF-4.7).
+    La sincronización no observa cambios sino el estado actual, así que el evento se clasifica
+    como actualización. Su instante es el ``updated`` del issue, lo que hace la sincronización
+    idempotente: repetirla sin cambios en Jira produce la misma huella (RF-4.7).
     """
     if not isinstance(issue, dict) or not issue.get("key"):
         raise UnsupportedEventError("El issue no tiene clave identificable.")
 
-    return _build_event(
+    return _build(
         payload={"issue": issue, "source": "jql_sync"},
         issue=issue,
-        event_type=EventType.ISSUE_UPDATED,
+        kind=EventKind.WORK_ITEM_UPDATED,
+        base_url=base_url,
     )

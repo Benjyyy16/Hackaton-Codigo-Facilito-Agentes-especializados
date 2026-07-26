@@ -39,6 +39,7 @@ logger = get_logger("jira.client")
 #: Endpoint vigente de búsqueda por JQL.
 SEARCH_JQL_PATH: Final[str] = "/rest/api/3/search/jql"
 PROJECT_PATH: Final[str] = "/rest/api/3/project"
+MYSELF_PATH: Final[str] = "/rest/api/3/myself"
 
 #: Campos que se piden explícitamente. El endpoint nuevo devuelve un conjunto mínimo si no se
 #: indican, y sin ellos el análisis se queda sin señales.
@@ -163,7 +164,12 @@ class JiraClient:
             )
 
     async def _request(
-        self, method: str, path: str, *, params: dict[str, Any] | None = None
+        self,
+        method: str,
+        path: str,
+        *,
+        params: dict[str, Any] | None = None,
+        timeout: float | None = None,
     ) -> dict[str, Any]:
         """Ejecuta una petición aplicando la política de reintentos.
 
@@ -171,10 +177,13 @@ class JiraClient:
         (RF-3.7).
         """
         last_response: httpx.Response | None = None
+        # ``timeout`` permite un presupuesto más corto que el del cliente para las llamadas que
+        # lo necesitan, como la sonda de salud.
+        extra: dict[str, Any] = {} if timeout is None else {"timeout": timeout}
 
         for attempt in range(self._max_retries + 1):
             try:
-                response = await self._http.request(method, path, params=params)
+                response = await self._http.request(method, path, params=params, **extra)
             except httpx.TimeoutException as error:
                 logger.warning(
                     "Jira %s %s agotó el tiempo (intento %d/%d)",
@@ -251,6 +260,15 @@ class JiraClient:
     async def get_project(self, project_key: str) -> dict[str, Any]:
         """Devuelve un proyecto. Eleva ``JiraNotFoundError`` si no existe (RF-4.6)."""
         return await self._request("GET", f"{PROJECT_PATH}/{project_key}")
+
+    async def get_current_user(self, *, timeout: float | None = None) -> dict[str, Any]:
+        """Devuelve la cuenta autenticada.
+
+        Es la sonda de salud: la llamada más barata que además confirma que las credenciales
+        siguen siendo válidas. Un ``401`` aquí se traduce a ``JiraAuthError``, que distingue
+        "Jira caído" de "credenciales revocadas".
+        """
+        return await self._request("GET", MYSELF_PATH, timeout=timeout)
 
     async def search_page(
         self,

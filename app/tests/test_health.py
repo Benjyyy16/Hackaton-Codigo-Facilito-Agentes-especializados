@@ -230,25 +230,25 @@ class TestAppFactory:
 
 
 class TestLifespan:
-    async def test_startup_survives_supabase_failure(
+    async def test_startup_survives_storage_failure(
         self, settings: Settings, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Abortar el arranque dejaría al operador sin poder consultar qué falla."""
-        from app import main as main_module
+        from app.providers import supabase as supabase_provider
 
         async def _fail(_settings: Settings) -> None:
             raise RuntimeError("credenciales rechazadas")
 
-        monkeypatch.setattr(main_module, "create_supabase_client", _fail)
+        monkeypatch.setattr(supabase_provider, "create_supabase_client", _fail)
         app = create_app(settings)
 
         async with app.router.lifespan_context(app):
-            assert app.state.supabase is None
+            assert app.state.storage.is_connected is False
 
-    async def test_client_is_released_on_shutdown(
+    async def test_resources_are_released_on_shutdown(
         self, settings: Settings, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from app import main as main_module
+        from app.providers import supabase as supabase_provider
 
         fake = FakeSupabaseClient()
         closed: list[object] = []
@@ -259,32 +259,58 @@ class TestLifespan:
         async def _close(client: object) -> None:
             closed.append(client)
 
-        monkeypatch.setattr(main_module, "create_supabase_client", _create)
-        monkeypatch.setattr(main_module, "close_supabase_client", _close)
+        monkeypatch.setattr(supabase_provider, "create_supabase_client", _create)
+        monkeypatch.setattr(supabase_provider, "close_supabase_client", _close)
         app = create_app(settings)
 
         async with app.router.lifespan_context(app):
-            assert app.state.supabase is fake
+            assert app.state.storage.client is fake
 
         assert closed == [fake]
-        assert app.state.supabase is None
+        assert app.state.storage is None
+
+    async def test_registry_is_built_from_settings(self, settings: Settings) -> None:
+        """Solo se registra el provider cuyas credenciales están presentes."""
+        app = create_app(settings)
+
+        async with app.router.lifespan_context(app):
+            from app.schemas.events import ProviderName
+
+            assert ProviderName.JIRA in app.state.providers
+
+    async def test_registry_is_emptied_on_shutdown(self, settings: Settings) -> None:
+        app = create_app(settings)
+
+        async with app.router.lifespan_context(app):
+            pass
+
+        assert len(app.state.providers) == 0
 
 
 class TestDependencyWiring:
-    async def test_missing_client_is_a_domain_error(self, settings: Settings) -> None:
-        """Un cliente sin inicializar no debe fallar como ``AttributeError``."""
-        from app.api.deps import get_supabase_client
+    async def test_missing_storage_is_a_domain_error(self, settings: Settings) -> None:
+        """Un almacén sin inicializar no debe fallar como ``AttributeError``."""
+        from app.api.deps import get_storage
         from app.core.exceptions import SupabaseError
 
         app = create_app(settings)
-        app.state.supabase = None
+        app.state.storage = None
 
         class FakeRequest:
-            def __init__(self, application: FastAPI) -> None:
-                self.app = application
+            def __init__(self) -> None:
+                self.app = app
 
         with pytest.raises(SupabaseError):
-            get_supabase_client(FakeRequest(app))  # type: ignore[arg-type]
+            get_storage(FakeRequest())  # type: ignore[arg-type]
+
+    async def test_repositories_come_from_the_storage_provider(
+        self, storage: object
+    ) -> None:
+        """Los servicios reciben repositorios, nunca el cliente (RF-7.2)."""
+        bundle = storage.repositories()  # type: ignore[attr-defined]
+
+        assert bundle.events.table_name == "external_events"
+        assert bundle.workspaces.table_name == "workspaces"
 
     async def test_principal_placeholder_is_a_service_identity(self) -> None:
         """RNF-1.6: el hueco para JWT existe y las rutas ya lo pueden declarar."""

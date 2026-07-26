@@ -9,38 +9,40 @@ from app.repositories.base import BaseRepository, Page, Row
 
 
 class CommitmentRepository(BaseRepository):
-    """Compromisos derivados de issues de Jira."""
+    """Compromisos derivados de elementos de trabajo de cualquier provider."""
 
     table_name: ClassVar[str] = "commitments"
     soft_delete: ClassVar[bool] = True
 
-    async def get_by_issue_key(self, project_id: UUID, jira_issue_key: str) -> Row | None:
-        """Devuelve el compromiso de un issue dentro de un proyecto."""
+    async def get_by_issue_key(self, workspace_id: UUID, external_key: str) -> Row | None:
+        """Devuelve el compromiso de un elemento dentro de un contenedor."""
         return await self.find_one(
-            {"project_id": str(project_id), "jira_issue_key": jira_issue_key}
+            {"workspace_id": str(workspace_id), "external_key": external_key}
         )
 
     async def upsert_from_issue(
         self,
         *,
-        project_id: UUID,
-        jira_issue_key: str,
+        workspace_id: UUID,
+        provider: str,
+        external_key: str,
         title: str,
         due_date: str | None = None,
         estimated_hours: float | None = None,
         status: str | None = None,
     ) -> Row:
-        """Crea o actualiza el compromiso que representa un issue.
+        """Crea o actualiza el compromiso que representa un elemento de trabajo.
 
-        Se apoya en la restricción ``unique (project_id, jira_issue_key)`` del esquema, de
-        modo que reprocesar el mismo issue actualiza en lugar de duplicar.
+        Se apoya en la restricción ``unique (workspace_id, external_key)`` del esquema, de
+        modo que reprocesar el mismo elemento actualiza en lugar de duplicar.
 
-        Los valores ``None`` se omiten a propósito: un payload de Jira que no trae la fecha
+        Los valores ``None`` se omiten a propósito: un payload que no trae la fecha
         de vencimiento no debe borrar la que ya estaba registrada.
         """
         payload: dict[str, Any] = {
-            "project_id": str(project_id),
-            "jira_issue_key": jira_issue_key,
+            "workspace_id": str(workspace_id),
+            "provider": provider,
+            "external_key": external_key,
             "title": title,
         }
         if due_date is not None:
@@ -50,18 +52,18 @@ class CommitmentRepository(BaseRepository):
         if status is not None:
             payload["status"] = status
 
-        return await self.upsert(payload, on_conflict="project_id,jira_issue_key")
+        return await self.upsert(payload, on_conflict="workspace_id,external_key")
 
     async def set_status(self, commitment_id: UUID, status: str) -> Row:
         """Actualiza el estado del compromiso."""
         return await self.update(commitment_id, {"status": status})
 
-    async def list_by_project(
-        self, project_id: UUID, *, limit: int = 20, offset: int = 0
+    async def list_by_workspace(
+        self, workspace_id: UUID, *, limit: int = 20, offset: int = 0
     ) -> Page[Row]:
-        """Lista los compromisos vivos de un proyecto."""
+        """Lista los compromisos vivos de un contenedor."""
         return await self.list_page(
             limit=limit,
             offset=offset,
-            filters={"project_id": str(project_id)},
+            filters={"workspace_id": str(workspace_id)},
         )

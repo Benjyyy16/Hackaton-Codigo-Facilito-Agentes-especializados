@@ -164,6 +164,18 @@ class SupabaseError(IntegrationError):
     message = "El almacenamiento no está disponible en este momento."
 
 
+class ProviderNotAvailableError(DomainError):
+    """El provider solicitado no existe o no está configurado en esta instancia.
+
+    Se traduce a ``404`` porque, desde fuera, un provider sin configurar es indistinguible de
+    uno que no existe. Distinguirlos revelaría qué integraciones están previstas.
+    """
+
+    code = "provider_not_available"
+    status_code = status.HTTP_404_NOT_FOUND
+    message = "El provider solicitado no está disponible."
+
+
 # --- Traducción a HTTP ------------------------------------------------------------
 
 _SERVER_ERROR_THRESHOLD: Final[int] = 500

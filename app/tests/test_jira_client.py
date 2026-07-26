@@ -523,54 +523,81 @@ class TestShutdown:
         await close_jira_http_client(Failing())  # type: ignore[arg-type]
 
 
-class TestLifecycleWiring:
-    """El cliente de Jira es de vida larga y se crea en el ``lifespan``."""
+class TestProviderLifecycle:
+    """El provider de Jira gestiona su cliente HTTP de vida larga."""
 
-    async def test_client_is_created_on_startup_and_closed_on_shutdown(
+    async def test_connect_creates_the_client_and_close_releases_it(
         self, settings: Settings
     ) -> None:
-        from app.main import create_app
+        from app.providers.jira import JiraProvider
 
-        app = create_app(settings)
+        provider = JiraProvider(settings)
+        await provider.connect()
+        http = provider._http  # noqa: SLF001
 
-        async with app.router.lifespan_context(app):
-            http = app.state.jira_http
-            assert isinstance(http, httpx.AsyncClient)
-            assert not http.is_closed
+        assert isinstance(http, httpx.AsyncClient)
+        assert not http.is_closed
 
+        await provider.close()
         assert http.is_closed
-        assert app.state.jira_http is None
 
-    async def test_dependency_reports_uninitialised_client(
+    async def test_connect_is_idempotent(self, settings: Settings) -> None:
+        """El registro puede conectar dos veces sin duplicar conexiones."""
+        from app.providers.jira import JiraProvider
+
+        provider = JiraProvider(settings)
+        await provider.connect()
+        first = provider._http  # noqa: SLF001
+        await provider.connect()
+
+        assert provider._http is first  # noqa: SLF001
+        await provider.close()
+
+    async def test_health_before_connect_is_unknown(self, settings: Settings) -> None:
+        """No haber comprobado no es lo mismo que estar caído."""
+        from app.providers.jira import JiraProvider
+        from app.schemas.common import DependencyStatus
+
+        health = await JiraProvider(settings).health()
+
+        assert health.status is DependencyStatus.UNKNOWN
+
+    async def test_health_reports_up_when_jira_answers(self, settings: Settings) -> None:
+        from app.providers.jira import JiraProvider
+        from app.schemas.common import DependencyStatus
+
+        transport = httpx.MockTransport(
+            lambda _request: httpx.Response(200, json={"accountId": "abc"})
+        )
+        provider = JiraProvider(settings, transport=transport)
+        await provider.connect()
+
+        health = await provider.health()
+
+        assert health.status is DependencyStatus.UP
+        assert health.latency_ms is not None
+        await provider.close()
+
+    async def test_health_reports_down_without_raising(self, settings: Settings) -> None:
+        """``health()`` informa, no eleva (RF-2.3)."""
+        from app.providers.jira import JiraProvider
+        from app.schemas.common import DependencyStatus
+
+        transport = httpx.MockTransport(lambda _request: httpx.Response(500))
+        provider = JiraProvider(settings, transport=transport, )
+        await provider.connect()
+
+        health = await provider.health()
+
+        assert health.status is DependencyStatus.DOWN
+        assert health.detail
+        await provider.close()
+
+    async def test_operations_before_connect_fail_loudly(
         self, settings: Settings
     ) -> None:
-        from app.api.deps import get_jira_client
-        from app.core.exceptions import IntegrationError
-        from app.main import create_app
+        """Mejor un error claro que un ``NoneType`` en mitad de una sincronización."""
+        from app.providers.jira import JiraProvider
 
-        app = create_app(settings)
-
-        class FakeRequest:
-            def __init__(self) -> None:
-                self.app = app
-
-        with pytest.raises(IntegrationError):
-            get_jira_client(FakeRequest(), settings)  # type: ignore[arg-type]
-
-    async def test_dependency_uses_configured_retry_budget(
-        self, settings: Settings
-    ) -> None:
-        from app.api.deps import get_jira_client
-        from app.main import create_app
-
-        app = create_app(settings)
-        app.state.jira_http = httpx.AsyncClient()
-
-        class FakeRequest:
-            def __init__(self) -> None:
-                self.app = app
-
-        client = get_jira_client(FakeRequest(), settings)  # type: ignore[arg-type]
-
-        assert client._max_retries == settings.HTTP_MAX_RETRIES  # noqa: SLF001
-        await app.state.jira_http.aclose()
+        with pytest.raises(RuntimeError, match="connect"):
+            await JiraProvider(settings).ensure_workspace_exists("DEMO")

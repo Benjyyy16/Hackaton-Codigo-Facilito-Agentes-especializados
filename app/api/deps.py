@@ -1,31 +1,34 @@
 """Dependencias de FastAPI.
 
 Todo lo que las rutas necesitan se resuelve aquí, leyendo del estado de la aplicación. Ese
-detalle es lo que permite que los tests sustituyan el cliente de Supabase o un servicio
-completo con ``dependency_overrides``, sin parchear variables de módulo.
+detalle es lo que permite que los tests sustituyan un provider o un servicio completo con
+``dependency_overrides``, sin parchear variables de módulo.
+
+Ninguna dependencia menciona una clase concreta de provider: entregan el registro o el puerto.
+Las implementaciones se eligen en la factoría del ``lifespan``, que es donde debe estar esa
+decisión.
 """
 
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastapi import Depends, Request
 
+from app.agents.orchestrator import OrchestratorAgent
 from app.core.config import Settings
-from app.core.exceptions import IntegrationError, SupabaseError
+from app.core.exceptions import SupabaseError
 from app.core.logging import get_logger
-from app.integrations.jira.client import JiraClient
-from app.repositories.alerts import AlertRepository
-from app.repositories.commitments import CommitmentRepository
-from app.repositories.jira_events import JiraEventRepository
-from app.repositories.projects import ProjectRepository
-from app.repositories.risk_analyses import RiskAnalysisRepository
+from app.providers.base import RepositoryBundle
+from app.providers.registry import ProviderRegistry
+from app.providers.supabase import SupabaseStorageProvider
 from app.services.health_service import HealthService
-from app.services.jira_sync_service import JiraSyncService
-from app.services.webhook_service import IngestOutcome, WebhookService
+from app.services.ingest_service import IngestOutcome, IngestService
+from app.services.orchestrator_service import OrchestratorService
 
 logger = get_logger("api.deps")
+
 
 # --- Estado de la aplicación --------------------------------------------------------
 
@@ -35,134 +38,124 @@ def get_settings_dep(request: Request) -> Settings:
     return request.app.state.settings
 
 
-def get_supabase_client(request: Request) -> Any:
-    """Cliente de Supabase creado en el ``lifespan``.
+def get_provider_registry(request: Request) -> ProviderRegistry:
+    """Registro de providers construido en el ``lifespan``."""
+    registry = getattr(request.app.state, "providers", None)
+    if registry is None:
+        # No debería ocurrir: el registro se crea siempre, aunque quede vacío.
+        return ProviderRegistry()
+    return registry
 
-    Si no está disponible es que el arranque no lo inicializó; se traduce a un error de
-    dominio en lugar de dejar que falle como ``AttributeError``.
+
+def get_storage(request: Request) -> SupabaseStorageProvider:
+    """Provider de almacenamiento.
+
+    Es la única dependencia que nombra una implementación concreta, y solo porque hay un único
+    almacén. Lo que entrega hacia arriba es el conjunto de repositorios, no el cliente.
     """
-    client = getattr(request.app.state, "supabase", None)
-    if client is None:
-        raise SupabaseError("El cliente de Supabase no está inicializado.")
-    return client
+    storage = getattr(request.app.state, "storage", None)
+    if storage is None:
+        raise SupabaseError("El almacenamiento no está inicializado.")
+    return storage
 
 
 SettingsDep = Annotated[Settings, Depends(get_settings_dep)]
-SupabaseDep = Annotated[Any, Depends(get_supabase_client)]
-
-
-def get_jira_client(request: Request, settings: SettingsDep) -> JiraClient:
-    """Cliente de Jira sobre el ``httpx.AsyncClient`` creado en el ``lifespan``."""
-    http = getattr(request.app.state, "jira_http", None)
-    if http is None:
-        raise IntegrationError("El cliente de Jira no está inicializado.")
-    return JiraClient(http, max_retries=settings.HTTP_MAX_RETRIES)
-
-
-JiraClientDep = Annotated[JiraClient, Depends(get_jira_client)]
+ProviderRegistryDep = Annotated[ProviderRegistry, Depends(get_provider_registry)]
+StorageDep = Annotated[SupabaseStorageProvider, Depends(get_storage)]
 
 
 # --- Repositorios -------------------------------------------------------------------
 
 
-def get_project_repository(client: SupabaseDep) -> ProjectRepository:
-    return ProjectRepository(client)
+def get_repositories(storage: StorageDep) -> RepositoryBundle:
+    """Repositorios respaldados por el almacén configurado.
+
+    Los servicios reciben este conjunto y nunca el cliente: el acceso a datos pasa siempre por un
+    repositorio (RF-7.2).
+    """
+    return storage.repositories()
 
 
-def get_jira_event_repository(client: SupabaseDep) -> JiraEventRepository:
-    return JiraEventRepository(client)
-
-
-def get_commitment_repository(client: SupabaseDep) -> CommitmentRepository:
-    return CommitmentRepository(client)
-
-
-def get_risk_analysis_repository(client: SupabaseDep) -> RiskAnalysisRepository:
-    return RiskAnalysisRepository(client)
-
-
-def get_alert_repository(client: SupabaseDep) -> AlertRepository:
-    return AlertRepository(client)
-
-
-ProjectRepositoryDep = Annotated[ProjectRepository, Depends(get_project_repository)]
-JiraEventRepositoryDep = Annotated[
-    JiraEventRepository, Depends(get_jira_event_repository)
-]
-CommitmentRepositoryDep = Annotated[
-    CommitmentRepository, Depends(get_commitment_repository)
-]
-RiskAnalysisRepositoryDep = Annotated[
-    RiskAnalysisRepository, Depends(get_risk_analysis_repository)
-]
-AlertRepositoryDep = Annotated[AlertRepository, Depends(get_alert_repository)]
+RepositoriesDep = Annotated[RepositoryBundle, Depends(get_repositories)]
 
 
 # --- Servicios ----------------------------------------------------------------------
 
 
-def get_webhook_service(
-    projects: ProjectRepositoryDep, events: JiraEventRepositoryDep
-) -> WebhookService:
-    return WebhookService(projects, events)
+def get_ingest_service(repositories: RepositoriesDep) -> IngestService:
+    return IngestService(repositories.workspaces, repositories.events)
 
 
-WebhookServiceDep = Annotated[WebhookService, Depends(get_webhook_service)]
+IngestServiceDep = Annotated[IngestService, Depends(get_ingest_service)]
 
 
-def get_jira_sync_service(
-    jira: JiraClientDep, webhooks: WebhookServiceDep
-) -> JiraSyncService:
-    return JiraSyncService(jira, webhooks)
+def get_orchestrator_service(
+    registry: ProviderRegistryDep,
+    repositories: RepositoriesDep,
+    ingest: IngestServiceDep,
+    settings: SettingsDep,
+) -> OrchestratorService:
+    return OrchestratorService(
+        registry,
+        repositories,
+        ingest,
+        OrchestratorAgent(),
+        alert_threshold=settings.RISK_ALERT_THRESHOLD,
+    )
 
 
-JiraSyncServiceDep = Annotated[JiraSyncService, Depends(get_jira_sync_service)]
-
-
-async def run_post_ingest(outcome: IngestOutcome) -> None:
-    """Trabajo posterior a la ingesta de un evento.
-
-    Es la costura donde se enchufa el análisis. Hoy solo registra: el orquestador y el
-    servicio de análisis llegan en un bloque posterior.
-
-    Captura cualquier excepción a propósito. Se ejecuta como tarea en segundo plano, ya con el
-    evento persistido y la respuesta enviada a Jira; un fallo aquí debe quedar registrado sin
-    tumbar nada ni perder el evento (RF-5.8).
-    """
-    try:
-        logger.info(
-            "Pendiente de análisis: evento %s de %s",
-            outcome.event_id,
-            outcome.event.jira_issue_key,
-        )
-    except Exception as error:  # noqa: BLE001 - una tarea de fondo no debe propagar
-        logger.error("El trabajo posterior a la ingesta falló", exc_info=error)
-
-
-def get_post_ingest_hook() -> PostIngestHook:
-    """Devuelve el gancho de post-ingesta.
-
-    Existe como dependencia para que los tests puedan sustituirlo con
-    ``dependency_overrides`` y comprobar que la ruta lo programa.
-    """
-    return run_post_ingest
-
-
-PostIngestHook = Callable[[IngestOutcome], Awaitable[None]]
-PostIngestHookDep = Annotated[PostIngestHook, Depends(get_post_ingest_hook)]
+OrchestratorServiceDep = Annotated[
+    OrchestratorService, Depends(get_orchestrator_service)
+]
 
 
 def get_health_service(request: Request, settings: SettingsDep) -> HealthService:
     """Servicio de salud.
 
-    Toma el cliente con ``getattr`` en lugar de con la dependencia: el health check debe
-    poder responder incluso si el cliente no llegó a inicializarse, informando de que la
-    dependencia no se pudo comprobar.
+    Toma el almacén y el registro con ``getattr`` en lugar de con las dependencias: el health
+    check debe poder responder incluso si el arranque no llegó a inicializarlos, informando de
+    que no se pudieron comprobar.
     """
-    return HealthService(settings, getattr(request.app.state, "supabase", None))
+    storage = getattr(request.app.state, "storage", None)
+    return HealthService(
+        settings,
+        storage.client if storage is not None and storage.is_connected else None,
+        registry=getattr(request.app.state, "providers", None),
+    )
 
 
 HealthServiceDep = Annotated[HealthService, Depends(get_health_service)]
+
+
+# --- Trabajo posterior a la ingesta -------------------------------------------------
+
+PostIngestHook = Callable[[IngestOutcome], Awaitable[None]]
+
+
+def get_post_ingest_hook(
+    orchestrator: OrchestratorServiceDep,
+) -> PostIngestHook:
+    """Devuelve el trabajo que se ejecuta tras persistir un evento.
+
+    Envuelve el análisis en un manejador de errores propio. Se ejecuta como tarea en segundo
+    plano, ya con el evento persistido y la respuesta enviada, así que un fallo aquí debe quedar
+    registrado sin tumbar nada ni perder el evento (RF-5.8).
+    """
+
+    async def _run(outcome: IngestOutcome) -> None:
+        try:
+            await orchestrator.analyse_outcome(outcome)
+        except Exception as error:  # noqa: BLE001 - una tarea de fondo no debe propagar
+            logger.error(
+                "El análisis posterior a la ingesta falló para %s",
+                outcome.event.external_key,
+                exc_info=error,
+            )
+
+    return _run
+
+
+PostIngestHookDep = Annotated[PostIngestHook, Depends(get_post_ingest_hook)]
 
 
 # --- Autorización -------------------------------------------------------------------
@@ -195,8 +188,8 @@ SERVICE_PRINCIPAL = Principal(subject="commitment-twin-backend")
 async def get_current_principal() -> Principal:
     """Devuelve la identidad actual.
 
-    Punto de extensión para la autenticación JWT: cuando se implemente, esta función validará
-    el token y las rutas no cambiarán.
+    Punto de extensión para la autenticación JWT: cuando se implemente, esta función validará el
+    token y las rutas no cambiarán.
     """
     return SERVICE_PRINCIPAL
 

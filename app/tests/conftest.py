@@ -20,7 +20,22 @@ import pytest
 from fastapi import FastAPI
 
 from app.core.config import Settings, get_settings
+from app.providers.jira import JiraProvider
+from app.providers.registry import ProviderRegistry
+from app.providers.supabase import SupabaseStorageProvider
 from app.tests.fakes.supabase import FakeSupabaseClient
+
+
+class StubStorage(SupabaseStorageProvider):
+    """Almacén cuyo cliente es el doble de Supabase.
+
+    Hereda del provider real para que los repositorios se construyan igual que en producción; lo
+    único sustituido es el cliente.
+    """
+
+    def __init__(self, settings: Settings, client: FakeSupabaseClient) -> None:
+        super().__init__(settings)
+        self._client = client  # type: ignore[assignment]
 
 _MANAGED_PREFIXES = ("SUPABASE_", "JIRA_", "RISK_", "HTTP_")
 _MANAGED_NAMES = ("ENV", "LOG_LEVEL")
@@ -68,28 +83,38 @@ def fake_supabase() -> FakeSupabaseClient:
 
 
 @pytest.fixture
-def jira_http() -> Iterator[httpx.AsyncClient]:
-    """Cliente HTTP de Jira sin red, que responde vacío a todo.
+def jira_transport() -> httpx.MockTransport:
+    """Transporte de Jira sin red, que responde vacío a todo.
 
-    La fixture ``app`` lo instala en ``app.state`` porque es lo que haría el ``lifespan``. Sin
-    él, cualquier ruta que declare la dependencia del cliente de Jira fallaría antes incluso
-    de validar el cuerpo de la petición, y un test de validación acabaría comprobando otra
-    cosa.
+    Los tests que necesiten respuestas concretas construyen el suyo.
     """
-    client = httpx.AsyncClient(
-        transport=httpx.MockTransport(lambda _request: httpx.Response(200, json={})),
-        base_url="https://example.atlassian.net",
-    )
-    yield client
+    return httpx.MockTransport(lambda _request: httpx.Response(200, json={}))
+
+
+@pytest.fixture
+def storage(fake_supabase: FakeSupabaseClient, settings: Settings) -> StubStorage:
+    """Provider de almacenamiento con el cliente de Supabase sustituido."""
+    return StubStorage(settings, fake_supabase)
+
+
+@pytest.fixture
+def registry(
+    settings: Settings, jira_transport: httpx.MockTransport
+) -> ProviderRegistry:
+    """Registro con el provider de Jira conectado sobre un transporte falso."""
+    provider = JiraProvider(settings, transport=jira_transport)
+    instance = ProviderRegistry()
+    instance.register(provider)
+    return instance
 
 
 @pytest.fixture
 def app(
     settings: Settings,
-    fake_supabase: FakeSupabaseClient,
-    jira_http: httpx.AsyncClient,
+    storage: StubStorage,
+    registry: ProviderRegistry,
 ) -> FastAPI:
-    """Aplicación lista para usar, con los clientes externos sustituidos.
+    """Aplicación lista para usar, con almacén y providers sustituidos.
 
     Se construye con ``create_app`` y luego se rellena ``app.state`` a mano, sin ejecutar el
     ``lifespan``: así ningún test intenta abrir una conexión real.
@@ -97,8 +122,8 @@ def app(
     from app.main import create_app
 
     application = create_app(settings)
-    application.state.supabase = fake_supabase
-    application.state.jira_http = jira_http
+    application.state.storage = storage
+    application.state.providers = registry
     return application
 
 

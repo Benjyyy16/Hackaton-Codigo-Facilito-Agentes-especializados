@@ -1,8 +1,10 @@
 """Punto de entrada de la aplicación.
 
-Usa ``lifespan`` en lugar de ``@app.on_event``, que está obsoleto. Los recursos de vida larga
-(cliente de Supabase y, más adelante, cliente de Jira) se crean una vez al arrancar y se
-guardan en ``app.state``, no en variables de módulo.
+Usa ``lifespan`` en lugar de ``@app.on_event``, que está obsoleto. Los recursos de vida larga se
+crean una vez al arrancar y se guardan en ``app.state``, no en variables de módulo.
+
+Este archivo, y solo este, decide qué implementaciones concretas de provider se usan. Es el
+extremo de la inyección de dependencias: a partir de aquí todo el mundo habla con puertos.
 """
 
 from __future__ import annotations
@@ -14,69 +16,82 @@ from typing import Final
 
 from fastapi import FastAPI, Request, Response
 
-from app.api.routes import health, jira, webhooks
-from app.core.config import APP_NAME, APP_VERSION, Settings, get_settings
+from app.api.routes import health, providers as provider_routes
+from app.core.config import APP_VERSION, Settings, get_settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import configure_logging, get_logger, set_request_id
-from app.integrations.jira.client import (
-    close_jira_http_client,
-    create_jira_http_client,
-)
-from app.integrations.supabase.client import (
-    close_supabase_client,
-    create_supabase_client,
-)
+from app.providers.jira import JiraProvider
+from app.providers.registry import ProviderRegistry
+from app.providers.supabase import SupabaseStorageProvider
 
 logger = get_logger("app")
 
 REQUEST_ID_HEADER: Final[str] = "X-Request-ID"
 
 
+def build_provider_registry(settings: Settings) -> ProviderRegistry:
+    """Construye el registro a partir de la configuración.
+
+    **Solo se registra el provider cuyas credenciales están presentes.** Un provider sin
+    configurar no se registra, en lugar de registrarse y fallar al usarlo: así cada consumidor no
+    tiene que distinguir "no configurado" de "caído", y ``GET /providers`` no inventa estados para
+    integraciones que nadie configuró.
+
+    Añadir GitHub, Notion, AWS o Rightway significa añadir una rama aquí y nada más. Ningún
+    servicio, ninguna ruta y ningún agente cambia.
+    """
+    registry = ProviderRegistry()
+
+    if settings.JIRA_BASE_URL and settings.JIRA_EMAIL:
+        registry.register(JiraProvider(settings))
+
+    return registry
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Crea y libera los recursos de vida larga.
 
-    Un fallo al crear el cliente de Supabase no impide arrancar: el servicio queda en estado
-    degradado y ``GET /health`` lo reporta. Abortar el arranque dejaría al operador sin forma
-    de consultar qué falla (RF-2.3).
+    Un fallo al conectar no impide arrancar: el servicio queda degradado y ``GET /health`` lo
+    reporta. Abortar el arranque dejaría al operador sin forma de consultar qué falla (RF-2.3).
     """
     settings: Settings = app.state.settings
-    app.state.supabase = None
-    app.state.jira_http = None
 
+    storage = SupabaseStorageProvider(settings)
     try:
-        app.state.supabase = await create_supabase_client(settings)
+        await storage.connect()
     except Exception as error:  # noqa: BLE001 - el arranque debe completarse
         logger.error(
-            "Arranque sin cliente de Supabase; el servicio queda degradado",
-            exc_info=error,
+            "Arranque sin almacenamiento; el servicio queda degradado", exc_info=error
         )
+    app.state.storage = storage
 
-    # El cliente HTTP de Jira es de vida larga y se reutiliza: crear uno por petición
-    # desperdiciaría el pool de conexiones y el handshake TLS.
-    app.state.jira_http = create_jira_http_client(settings)
+    registry = build_provider_registry(settings)
+    await registry.connect_all()
+    app.state.providers = registry
 
     logger.info(
-        "Servicio %s %s iniciado en entorno %s",
+        "Servicio %s %s iniciado en entorno %s con providers: %s",
         settings.app_name,
         settings.app_version,
         settings.ENV.value,
+        ", ".join(name.value for name in registry.names()) or "ninguno",
     )
     try:
         yield
     finally:
-        await close_jira_http_client(app.state.jira_http)
-        await close_supabase_client(app.state.supabase)
-        app.state.jira_http = None
-        app.state.supabase = None
+        await registry.close_all()
+        await storage.close()
+        app.state.providers = ProviderRegistry()
+        app.state.storage = None
         logger.info("Servicio detenido")
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     """Construye la aplicación.
 
-    Recibe ``settings`` como parámetro para que los tests puedan inyectar una configuración
-    sin depender del entorno del proceso.
+    Recibe ``settings`` como parámetro para que los tests puedan inyectar una configuración sin
+    depender del entorno del proceso.
     """
     resolved = settings or get_settings()
     configure_logging(resolved)
@@ -84,16 +99,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(
         title="Commitment Twin API",
         version=APP_VERSION,
-        summary="Detección de compromisos en riesgo a partir de señales de Jira",
+        summary="Detección de compromisos en riesgo a partir de señales de varios sistemas",
         description=(
-            "Backend que ingiere eventos de Jira, los analiza con agentes especializados "
-            "y difunde el resultado en tiempo real."
+            "Backend que ingiere eventos de proveedores externos, los analiza con agentes "
+            "especializados y difunde el resultado en tiempo real.\n\n"
+            "Las rutas son genéricas: el provider viaja en la URL y se resuelve en el registro."
         ),
         lifespan=lifespan,
     )
     app.state.settings = resolved
-    app.state.supabase = None
-    app.state.jira_http = None
+    app.state.storage = None
+    app.state.providers = ProviderRegistry()
 
     @app.middleware("http")
     async def _correlate_requests(
@@ -109,16 +125,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         try:
             response = await call_next(request)
         finally:
-            # Se limpia al terminar para que el contexto no se filtre a otra petición
-            # atendida por la misma tarea.
+            # Se limpia al terminar para que el contexto no se filtre a otra petición atendida
+            # por la misma tarea.
             set_request_id(None)
         response.headers[REQUEST_ID_HEADER] = request_id
         return response
 
     register_exception_handlers(app)
     app.include_router(health.router)
-    app.include_router(webhooks.router)
-    app.include_router(jira.router)
+    app.include_router(provider_routes.router)
 
     return app
 
@@ -126,9 +141,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 if __name__ == "__main__":  # pragma: no cover - arranque manual
     import uvicorn
 
-    # Se arranca con la factoría, no con una instancia de módulo. Instanciar la app al
-    # importar obligaría a tener el entorno completo resuelto solo para importar el módulo,
-    # incluida la recolección de tests.
+    # Se arranca con la factoría, no con una instancia de módulo. Instanciar la app al importar
+    # obligaría a tener el entorno completo resuelto solo para importar el módulo, incluida la
+    # recolección de tests.
     uvicorn.run(
         "app.main:create_app",
         factory=True,

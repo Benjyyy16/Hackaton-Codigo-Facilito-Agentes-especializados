@@ -21,9 +21,10 @@ from app.repositories.base import (
     Page,
 )
 from app.repositories.commitments import CommitmentRepository
-from app.repositories.jira_events import JiraEventRepository
-from app.repositories.projects import ProjectRepository
+from app.repositories.events import EventRepository
+from app.repositories.workspaces import WorkspaceRepository
 from app.repositories.risk_analyses import RiskAnalysisRepository
+from app.schemas.events import ProviderName
 from app.tests.fakes.supabase import FakeSupabaseClient
 
 
@@ -38,24 +39,24 @@ class TestSoftDeleteFiltering:
     async def test_read_on_soft_delete_table_excludes_deleted(
         self, client: FakeSupabaseClient
     ) -> None:
-        client.for_table("projects").returns([{"id": str(uuid4())}])
-        repo = ProjectRepository(client)
+        client.for_table("workspaces").returns([{"id": str(uuid4())}])
+        repo = WorkspaceRepository(client)
 
         await repo.get(uuid4())
 
-        deleted_filters = client.for_table("projects").calls_to("is_")
+        deleted_filters = client.for_table("workspaces").calls_to("is_")
         assert any(call.args == ("deleted_at", "null") for call in deleted_filters)
 
     async def test_read_on_history_table_does_not_filter(
         self, client: FakeSupabaseClient
     ) -> None:
         """Los eventos son un histórico: no hay borrado lógico que filtrar."""
-        client.for_table("jira_events").returns([{"id": str(uuid4())}])
-        repo = JiraEventRepository(client)
+        client.for_table("external_events").returns([{"id": str(uuid4())}])
+        repo = EventRepository(client)
 
         await repo.get(uuid4())
 
-        assert not client.for_table("jira_events").called("is_")
+        assert not client.for_table("external_events").called("is_")
 
     async def test_listing_applies_soft_delete_filter(
         self, client: FakeSupabaseClient
@@ -69,17 +70,17 @@ class TestSoftDeleteFiltering:
 
     async def test_soft_delete_sets_timestamp(self, client: FakeSupabaseClient) -> None:
         entity_id = uuid4()
-        client.for_table("projects").returns([{"id": str(entity_id)}])
-        repo = ProjectRepository(client)
+        client.for_table("workspaces").returns([{"id": str(entity_id)}])
+        repo = WorkspaceRepository(client)
 
         await repo.soft_delete_by_id(entity_id)
 
-        assert client.for_table("projects").payload()["deleted_at"] is not None
+        assert client.for_table("workspaces").payload()["deleted_at"] is not None
 
     async def test_soft_delete_rejected_on_history_table(
         self, client: FakeSupabaseClient
     ) -> None:
-        repo = JiraEventRepository(client)
+        repo = EventRepository(client)
 
         with pytest.raises(SupabaseError):
             await repo.soft_delete_by_id(uuid4())
@@ -92,8 +93,8 @@ class TestErrorTranslation:
         self, client: FakeSupabaseClient
     ) -> None:
         """El caso que sostiene la deduplicación: duplicado, no fallo."""
-        client.for_table("jira_events").raises_api_error(UNIQUE_VIOLATION)
-        repo = JiraEventRepository(client)
+        client.for_table("external_events").raises_api_error(UNIQUE_VIOLATION)
+        repo = EventRepository(client)
 
         with pytest.raises(DuplicateEventError):
             await repo.create({"fingerprint": "abc"})
@@ -110,8 +111,8 @@ class TestErrorTranslation:
     async def test_unknown_api_error_becomes_supabase_error(
         self, client: FakeSupabaseClient
     ) -> None:
-        client.for_table("projects").raises_api_error("42P01", "tabla inexistente")
-        repo = ProjectRepository(client)
+        client.for_table("workspaces").raises_api_error("42P01", "tabla inexistente")
+        repo = WorkspaceRepository(client)
 
         with pytest.raises(SupabaseError):
             await repo.create({"name": "x"})
@@ -120,8 +121,8 @@ class TestErrorTranslation:
         self, client: FakeSupabaseClient
     ) -> None:
         """Un fallo de red no debe escapar como excepción de librería."""
-        client.for_table("projects").raises(ConnectionError("sin ruta al host"))
-        repo = ProjectRepository(client)
+        client.for_table("workspaces").raises(ConnectionError("sin ruta al host"))
+        repo = WorkspaceRepository(client)
 
         with pytest.raises(SupabaseError):
             await repo.get(uuid4())
@@ -129,8 +130,8 @@ class TestErrorTranslation:
     async def test_domain_error_does_not_leak_library_detail(
         self, client: FakeSupabaseClient
     ) -> None:
-        client.for_table("projects").raises(ConnectionError("postgres://user:pw@host"))
-        repo = ProjectRepository(client)
+        client.for_table("workspaces").raises(ConnectionError("postgres://user:pw@host"))
+        repo = WorkspaceRepository(client)
 
         with pytest.raises(SupabaseError) as excinfo:
             await repo.get(uuid4())
@@ -143,51 +144,51 @@ class TestPagination:
         self, client: FakeSupabaseClient
     ) -> None:
         """``range`` de postgrest incluye ambos extremos: 20 filas son 0..19."""
-        client.for_table("jira_events").returns([], count=0)
-        repo = JiraEventRepository(client)
+        client.for_table("external_events").returns([], count=0)
+        repo = EventRepository(client)
 
         await repo.list_events(limit=20, offset=0)
 
-        assert client.for_table("jira_events").calls_to("range")[0].args == (0, 19)
+        assert client.for_table("external_events").calls_to("range")[0].args == (0, 19)
 
     async def test_offset_shifts_the_range(self, client: FakeSupabaseClient) -> None:
-        client.for_table("jira_events").returns([], count=0)
-        repo = JiraEventRepository(client)
+        client.for_table("external_events").returns([], count=0)
+        repo = EventRepository(client)
 
         await repo.list_events(limit=10, offset=30)
 
-        assert client.for_table("jira_events").calls_to("range")[0].args == (30, 39)
+        assert client.for_table("external_events").calls_to("range")[0].args == (30, 39)
 
     async def test_page_size_is_capped(self, client: FakeSupabaseClient) -> None:
         """Un cliente no puede pedir un rango arbitrariamente grande."""
-        client.for_table("jira_events").returns([], count=0)
-        repo = JiraEventRepository(client)
+        client.for_table("external_events").returns([], count=0)
+        repo = EventRepository(client)
 
         await repo.list_events(limit=10_000)
 
-        start, end = client.for_table("jira_events").calls_to("range")[0].args
+        start, end = client.for_table("external_events").calls_to("range")[0].args
         assert end - start + 1 == MAX_PAGE_SIZE
 
     async def test_negative_offset_is_clamped(self, client: FakeSupabaseClient) -> None:
-        client.for_table("jira_events").returns([], count=0)
-        repo = JiraEventRepository(client)
+        client.for_table("external_events").returns([], count=0)
+        repo = EventRepository(client)
 
         await repo.list_events(offset=-5)
 
-        assert client.for_table("jira_events").calls_to("range")[0].args[0] == 0
+        assert client.for_table("external_events").calls_to("range")[0].args[0] == 0
 
     async def test_exact_count_is_requested(self, client: FakeSupabaseClient) -> None:
-        client.for_table("jira_events").returns([], count=0)
-        repo = JiraEventRepository(client)
+        client.for_table("external_events").returns([], count=0)
+        repo = EventRepository(client)
 
         await repo.list_events()
 
-        select_call = client.for_table("jira_events").calls_to("select")[0]
+        select_call = client.for_table("external_events").calls_to("select")[0]
         assert select_call.kwargs.get("count") == "exact"
 
     async def test_total_comes_from_count(self, client: FakeSupabaseClient) -> None:
-        client.for_table("jira_events").returns([{"id": "1"}, {"id": "2"}], count=57)
-        repo = JiraEventRepository(client)
+        client.for_table("external_events").returns([{"id": "1"}, {"id": "2"}], count=57)
+        repo = EventRepository(client)
 
         page = await repo.list_events(limit=2)
 
@@ -198,8 +199,8 @@ class TestPagination:
     async def test_has_more_is_false_on_last_page(
         self, client: FakeSupabaseClient
     ) -> None:
-        client.for_table("jira_events").returns([{"id": "1"}], count=3)
-        repo = JiraEventRepository(client)
+        client.for_table("external_events").returns([{"id": "1"}], count=3)
+        repo = EventRepository(client)
 
         page = await repo.list_events(limit=1, offset=2)
 
@@ -209,8 +210,8 @@ class TestPagination:
         self, client: FakeSupabaseClient
     ) -> None:
         """Si PostgREST no devuelve recuento, el total no puede quedar en ``None``."""
-        client.for_table("jira_events").returns([{"id": "1"}], count=None)
-        repo = JiraEventRepository(client)
+        client.for_table("external_events").returns([{"id": "1"}], count=None)
+        repo = EventRepository(client)
 
         page = await repo.list_events()
 
@@ -220,12 +221,12 @@ class TestPagination:
         self, client: FakeSupabaseClient
     ) -> None:
         """RF-10.1: del más reciente al más antiguo."""
-        client.for_table("jira_events").returns([], count=0)
-        repo = JiraEventRepository(client)
+        client.for_table("external_events").returns([], count=0)
+        repo = EventRepository(client)
 
         await repo.list_events()
 
-        order_call = client.for_table("jira_events").calls_to("order")[0]
+        order_call = client.for_table("external_events").calls_to("order")[0]
         assert order_call.args[0] == "occurred_at"
         assert order_call.kwargs["desc"] is True
 
@@ -264,8 +265,8 @@ class TestWriteContract:
         self, client: FakeSupabaseClient
     ) -> None:
         """Sin fila devuelta, la escritura no se puede considerar confirmada."""
-        client.for_table("projects").returns([])
-        repo = ProjectRepository(client)
+        client.for_table("workspaces").returns([])
+        repo = WorkspaceRepository(client)
 
         with pytest.raises(SupabaseError):
             await repo.create({"name": "x"})
@@ -273,8 +274,8 @@ class TestWriteContract:
     async def test_update_of_missing_row_is_not_found(
         self, client: FakeSupabaseClient
     ) -> None:
-        client.for_table("projects").returns([])
-        repo = ProjectRepository(client)
+        client.for_table("workspaces").returns([])
+        repo = WorkspaceRepository(client)
 
         with pytest.raises(EntityNotFoundError):
             await repo.update(uuid4(), {"name": "x"})
@@ -283,68 +284,68 @@ class TestWriteContract:
         self, client: FakeSupabaseClient
     ) -> None:
         """``updated_at`` lo mantiene un trigger; enviarlo sería redundante."""
-        client.for_table("projects").returns([{"id": str(uuid4())}])
-        repo = ProjectRepository(client)
+        client.for_table("workspaces").returns([{"id": str(uuid4())}])
+        repo = WorkspaceRepository(client)
 
         await repo.update(uuid4(), {"name": "nuevo"})
 
-        assert "updated_at" not in client.for_table("projects").payload()
+        assert "updated_at" not in client.for_table("workspaces").payload()
 
     async def test_get_or_raise_reports_missing_entity(
         self, client: FakeSupabaseClient
     ) -> None:
-        client.for_table("projects").returns([])
-        repo = ProjectRepository(client)
+        client.for_table("workspaces").returns([])
+        repo = WorkspaceRepository(client)
 
         with pytest.raises(EntityNotFoundError):
             await repo.get_or_raise(uuid4())
 
 
-class TestProjectRepository:
+class TestWorkspaceRepository:
     async def test_ensure_returns_existing_without_writing(
         self, client: FakeSupabaseClient
     ) -> None:
-        client.for_table("projects").returns([{"id": str(uuid4()), "name": "Demo"}])
-        repo = ProjectRepository(client)
+        client.for_table("workspaces").returns([{"id": str(uuid4()), "name": "Demo"}])
+        repo = WorkspaceRepository(client)
 
-        await repo.ensure(jira_project_key="DEMO")
+        await repo.ensure(provider=ProviderName.JIRA, workspace_key="DEMO")
 
-        assert not client.for_table("projects").called("upsert")
+        assert not client.for_table("workspaces").called("upsert")
 
     async def test_missing_project_raises_with_key_in_details(
         self, client: FakeSupabaseClient
     ) -> None:
         """RF-4.6: proyecto inexistente se traduce a 404 aguas arriba."""
-        client.for_table("projects").returns([])
-        repo = ProjectRepository(client)
+        client.for_table("workspaces").returns([])
+        repo = WorkspaceRepository(client)
 
         with pytest.raises(EntityNotFoundError) as excinfo:
-            await repo.get_by_jira_key_or_raise("NOPE")
+            await repo.get_by_key_or_raise(ProviderName.JIRA, "NOPE")
 
-        assert excinfo.value.details == {"jira_project_key": "NOPE"}
+        assert excinfo.value.details == {"provider": "jira", "workspace_key": "NOPE"}
 
 
-class TestJiraEventRepository:
+class TestEventRepository:
     async def test_fingerprint_lookup_filters_by_fingerprint(
         self, client: FakeSupabaseClient
     ) -> None:
-        client.for_table("jira_events").returns([{"id": str(uuid4())}])
-        repo = JiraEventRepository(client)
+        client.for_table("external_events").returns([{"id": str(uuid4())}])
+        repo = EventRepository(client)
 
         found = await repo.get_by_fingerprint("abc123")
 
         assert found is not None
         applied = {
             call.args[0]: call.args[1]
-            for call in client.for_table("jira_events").calls_to("eq")
+            for call in client.for_table("external_events").calls_to("eq")
         }
         assert applied == {"fingerprint": "abc123"}
 
     async def test_unknown_fingerprint_returns_none(
         self, client: FakeSupabaseClient
     ) -> None:
-        client.for_table("jira_events").returns([])
-        repo = JiraEventRepository(client)
+        client.for_table("external_events").returns([])
+        repo = EventRepository(client)
 
         assert await repo.get_by_fingerprint("nope") is None
 
@@ -358,11 +359,14 @@ class TestCommitmentRepository:
         repo = CommitmentRepository(client)
 
         await repo.upsert_from_issue(
-            project_id=uuid4(), jira_issue_key="DEMO-1", title="Entrega"
+            workspace_id=uuid4(),
+            provider="jira",
+            external_key="DEMO-1",
+            title="Entrega",
         )
 
         upsert_call = client.for_table("commitments").calls_to("upsert")[0]
-        assert upsert_call.kwargs["on_conflict"] == "project_id,jira_issue_key"
+        assert upsert_call.kwargs["on_conflict"] == "workspace_id,external_key"
 
     async def test_absent_optional_fields_are_not_written(
         self, client: FakeSupabaseClient
@@ -372,7 +376,10 @@ class TestCommitmentRepository:
         repo = CommitmentRepository(client)
 
         await repo.upsert_from_issue(
-            project_id=uuid4(), jira_issue_key="DEMO-1", title="Entrega"
+            workspace_id=uuid4(),
+            provider="jira",
+            external_key="DEMO-1",
+            title="Entrega",
         )
 
         payload = client.for_table("commitments").payload()
@@ -386,8 +393,9 @@ class TestCommitmentRepository:
         repo = CommitmentRepository(client)
 
         await repo.upsert_from_issue(
-            project_id=uuid4(),
-            jira_issue_key="DEMO-1",
+            workspace_id=uuid4(),
+            provider="jira",
+            external_key="DEMO-1",
             title="Entrega",
             due_date="2026-08-01T00:00:00+00:00",
             estimated_hours=12.5,
@@ -487,8 +495,8 @@ class TestLayeringDiscipline:
 
     def test_every_entity_has_its_own_repository(self) -> None:
         repositories = {
-            ProjectRepository,
-            JiraEventRepository,
+            WorkspaceRepository,
+            EventRepository,
             CommitmentRepository,
             RiskAnalysisRepository,
             AlertRepository,
@@ -496,8 +504,8 @@ class TestLayeringDiscipline:
         tables = {repo.table_name for repo in repositories}
 
         assert tables == {
-            "projects",
-            "jira_events",
+            "workspaces",
+            "external_events",
             "commitments",
             "risk_analyses",
             "alerts",
