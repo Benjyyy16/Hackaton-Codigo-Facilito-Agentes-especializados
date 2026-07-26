@@ -337,13 +337,39 @@ function AgentsPanel() {
   const [result, setResult] = useState<AgentResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [selectedAgent, setSelectedAgent] = useState<string | null>(null)
 
   const agents = [
-    { name: 'commitment', label: 'Commitment Agent', desc: 'Analiza vencimientos y compromisos', icon: '📅' },
-    { name: 'technical', label: 'Technical Agent', desc: 'Detecta bloqueos y estancamiento', icon: '⚙️' },
-    { name: 'financial', label: 'Financial Agent', desc: 'Calcula impacto económico', icon: '💰' },
-    { name: 'risk', label: 'Risk Agent', desc: 'Compone riesgo global ponderado', icon: '🎯' },
-    { name: 'orchestrator', label: 'Orchestrator', desc: 'Ejecuta pipeline completo', icon: '🤖' },
+    {
+      name: 'commitment', label: 'Commitment Agent', icon: '📅',
+      desc: 'Analiza vencimientos y compromisos',
+      howItWorks: 'Evalúa la fecha de vencimiento del compromiso contra la fecha actual. Detecta issues vencidos, próximos a vencer, sin fecha asignada o reabiertos.',
+      signals: ['overdue — Compromiso vencido', 'due_soon — Vence en menos de 3 días', 'no_due_date — Sin fecha de entrega', 'reopened — Fue cerrado y reabierto'],
+    },
+    {
+      name: 'technical', label: 'Technical Agent', icon: '⚙️',
+      desc: 'Detecta bloqueos y estancamiento',
+      howItWorks: 'Analiza el flujo de trabajo técnico: transiciones de estado, asignaciones, actividad reciente. Identifica patrones de riesgo como bloqueos, falta de responsable o estancamiento.',
+      signals: ['blocked — Issue marcado como bloqueado', 'unassigned — Sin responsable', 'stale — Sin actividad en X días', 'reassignment_churn — Múltiples reasignaciones'],
+    },
+    {
+      name: 'financial', label: 'Financial Agent', icon: '💰',
+      desc: 'Calcula impacto económico',
+      howItWorks: 'Toma las horas estimadas del compromiso y el costo/hora del proyecto para calcular el impacto económico si el compromiso falla. Cuantifica el riesgo en USD.',
+      signals: ['hours_at_risk — Horas que podrían perderse', 'cost_impact — Costo = horas × tarifa', 'budget_exposure — % del presupuesto en peligro'],
+    },
+    {
+      name: 'risk', label: 'Risk Agent', icon: '🎯',
+      desc: 'Compone riesgo global ponderado',
+      howItWorks: 'Recibe las salidas de los demás agentes y las combina con pesos declarados. Clasifica el resultado en severidad (low/medium/high/critical) e identifica la señal dominante.',
+      signals: ['weighted_score — Score ponderado 0-100', 'severity — low (<40) / medium (40-59) / high (60-79) / critical (80+)', 'dominant_signal — Señal de mayor peso'],
+    },
+    {
+      name: 'orchestrator', label: 'Orchestrator', icon: '🤖',
+      desc: 'Ejecuta pipeline completo',
+      howItWorks: 'Ejecuta CommitmentAgent, TechnicalAgent y FinancialAgent en secuencia. Si uno falla, continúa con los demás y marca el análisis como parcial (is_partial=true). Luego invoca al RiskAgent para componer el resultado final.',
+      signals: ['parallel_execution — Cada agente es independiente', 'fault_tolerance — Fallos aislados', 'result_composition — Agrega en AnalysisResult'],
+    },
   ]
 
   async function runAnalysis() {
@@ -406,12 +432,18 @@ function AgentsPanel() {
       {/* Grid de agentes */}
       <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         {agents.map((agent, i) => (
-          <motion.div
+          <motion.button
             key={agent.name}
+            onClick={() => setSelectedAgent(selectedAgent === agent.name ? null : agent.name)}
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 + i * 0.04 }}
-            className="rounded-xl border-2 border-ink-900 bg-paper p-3 shadow-hard-sm"
+            className={cn(
+              'rounded-xl border-2 bg-paper p-3 shadow-hard-sm text-left transition-all',
+              selectedAgent === agent.name
+                ? 'border-violet-600 ring-2 ring-violet-200'
+                : 'border-ink-900 hover:-translate-y-0.5'
+            )}
           >
             <span className="text-lg">{agent.icon}</span>
             <h3 className="mt-1 text-[12px] font-bold text-ink-900">{agent.label}</h3>
@@ -423,9 +455,38 @@ function AgentsPanel() {
                 </span>
               </div>
             )}
-          </motion.div>
+          </motion.button>
         ))}
       </div>
+
+      {/* Detalle del agente seleccionado */}
+      {selectedAgent && (() => {
+        const agent = agents.find(a => a.name === selectedAgent)!
+        return (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            className="mt-4 overflow-hidden rounded-xl border-2 border-violet-600 bg-violet-50 p-5"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-xl">{agent.icon}</span>
+              <h3 className="text-[16px] font-bold text-ink-900">{agent.label}</h3>
+            </div>
+            <p className="mt-2 text-[13px] leading-relaxed text-ink-700">{agent.howItWorks}</p>
+            <div className="mt-3">
+              <p className="label-mono text-violet-700 mb-1.5">señales que emite:</p>
+              <ul className="space-y-1">
+                {agent.signals.map((signal, si) => (
+                  <li key={si} className="flex items-center gap-2 text-[12px] text-ink-700">
+                    <Zap className="h-3 w-3 shrink-0 text-violet-500" />
+                    <span className="font-mono">{signal}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </motion.div>
+        )
+      })()}
 
       {/* Resultado del análisis */}
       {error && (
