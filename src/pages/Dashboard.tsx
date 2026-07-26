@@ -6,7 +6,7 @@ import { AppShell } from '@/components/app/AppShell'
 import { NewProjectModal } from '@/components/app/NewProjectModal'
 import { Button } from '@/components/ui/Button'
 import { Avatar } from '@/components/ui/Avatar'
-import { Odometer, Stamp } from '@/components/ui/Bits'
+import { Stamp } from '@/components/ui/Bits'
 import { GitHubLogo, SupabaseLogo } from '@/components/brand/Logos'
 import { useAppStore } from '@/store/AppStore'
 import { getTokens } from '@/lib/api'
@@ -26,7 +26,7 @@ export default function Dashboard() {
 
   return (
     <AppShell onNewProject={() => setModalOpen(true)}>
-      <div className="mx-auto w-full max-w-6xl px-5 py-9 sm:px-8 sm:py-12">
+      <div className="mx-auto w-full max-w-7xl px-5 py-9 sm:px-8 sm:py-12">
         {/* Encabezado */}
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -34,7 +34,7 @@ export default function Dashboard() {
               {user ? `sesión · ${user.name.split(' ')[0]}` : 'bienvenido'}
             </p>
             <h1 className="mt-2 font-display text-[38px] leading-none tracking-tightest text-ink-900 sm:text-[46px]">
-              Tus tableros
+              Centro de Control
             </h1>
           </div>
           <Button onClick={() => setModalOpen(true)}>
@@ -43,36 +43,74 @@ export default function Dashboard() {
           </Button>
         </div>
 
-        {/* Panel de resumen: ledger de 4 celdas */}
-        <div className="mt-8 overflow-hidden rounded-xl border-2 border-ink-900 bg-paper shadow-hard">
-          <div className="grid divide-y-2 divide-ink-100 sm:grid-cols-4 sm:divide-y-0 sm:divide-x-2">
-            {[
-              { label: 'proyectos', value: String(projects.length), icon: null },
-              { label: 'repos conectados', value: `${connected}/${projects.length}`, icon: 'gh' },
-              { label: 'tareas cerradas', value: `${doneTasks}/${totalTasks}`, icon: null },
-              { label: 'colaboradores', value: String(collaborators.length), icon: null },
-            ].map((s, i) => (
-              <motion.div
-                key={s.label}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.06 }}
-                className="p-4"
-              >
-                <p className="label-mono flex items-center gap-1.5 text-ink-400">
-                  {s.icon === 'gh' && <GitHubLogo className="h-3 w-3" />}
-                  {s.label}
-                </p>
-                <p className="mt-1.5 font-display text-[30px] leading-none tracking-tightest text-ink-900">
-                  <Odometer value={s.value} />
-                </p>
-              </motion.div>
-            ))}
+        {/* Layout principal: 2 columnas */}
+        <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_380px]">
+
+          {/* Columna izquierda: Agentes + Chat */}
+          <div>
+            <AgentsPanel />
+          </div>
+
+          {/* Columna derecha: Integraciones + Resumen */}
+          <div className="space-y-6">
+            {/* Integraciones */}
+            <div className="rounded-xl border-2 border-ink-900 bg-paper p-5 shadow-hard">
+              <div className="flex items-center gap-2 mb-4">
+                <Plug className="h-4 w-4 text-violet-600" />
+                <h3 className="text-[15px] font-bold text-ink-900">Integraciones</h3>
+              </div>
+              <div className="space-y-2.5">
+                {[
+                  { name: 'GitHub', icon: '🐙', url: 'https://hackaton-codigo-facilito-agentes.onrender.com/auth/oauth/github/login', desc: 'Repos, PRs, issues' },
+                  { name: 'Jira', icon: '📋', url: 'https://hackaton-codigo-facilito-agentes.onrender.com/oauth/jira/authorize?token=demo', desc: 'Issues, sprints' },
+                  { name: 'Vercel', icon: '▲', url: 'https://hackaton-codigo-facilito-agentes.onrender.com/oauth/vercel/authorize?token=demo', desc: 'Deploys, logs' },
+                  { name: 'Slack', icon: '💬', url: 'https://hackaton-codigo-facilito-agentes.onrender.com/oauth/slack/authorize?token=demo', desc: 'Alertas' },
+                ].map((integration) => (
+                  <a
+                    key={integration.name}
+                    href={integration.url}
+                    className="flex items-center gap-3 rounded-lg border-2 border-ink-200 p-2.5 transition hover:border-violet-600 hover:bg-violet-50"
+                  >
+                    <span className="text-lg">{integration.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-[12px] font-bold text-ink-900">{integration.name}</span>
+                      <span className="ml-1.5 text-[10px] text-ink-400">{integration.desc}</span>
+                    </div>
+                    <ArrowRight className="h-3.5 w-3.5 text-ink-300" />
+                  </a>
+                ))}
+              </div>
+            </div>
+
+            {/* Resumen */}
+            <div className="rounded-xl border-2 border-ink-900 bg-paper p-5 shadow-hard">
+              <p className="label-mono text-ink-400 mb-3">resumen</p>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[12px] text-ink-600">Proyectos</span>
+                  <span className="font-display text-[20px] text-ink-900">{projects.length}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[12px] text-ink-600">Tareas cerradas</span>
+                  <span className="font-display text-[20px] text-ink-900">{doneTasks}/{totalTasks}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[12px] text-ink-600">Repos conectados</span>
+                  <span className="font-display text-[20px] text-ink-900">{connected}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[12px] text-ink-600">Colaboradores</span>
+                  <span className="font-display text-[20px] text-ink-900">{collaborators.length}</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Proyectos */}
-        <div className="mt-10 grid gap-5 lg:grid-cols-2">
+        {/* Proyectos — debajo */}
+        <div className="mt-10">
+          <h2 className="font-display text-[24px] tracking-tightest text-ink-900 mb-5">Proyectos</h2>
+          <div className="grid gap-5 lg:grid-cols-2">
           {projects.map((p, i) => {
             const done = p.tasks.filter((t) => t.status === 'done').length
             const pct = p.tasks.length ? Math.round((done / p.tasks.length) * 100) : 0
@@ -245,56 +283,13 @@ export default function Dashboard() {
             </span>
           </motion.button>
         </div>
+        </div>
 
         {user?.isDemo && (
           <div className="mt-10 flex justify-center">
             <Stamp tone="violet">datos de demostración</Stamp>
           </div>
         )}
-
-        {/* ═══ Integraciones ═══ */}
-        <div className="mt-12">
-          <div className="flex items-center gap-2">
-            <Plug className="h-5 w-5 text-violet-600" />
-            <h2 className="font-display text-[24px] tracking-tightest text-ink-900">Integraciones</h2>
-          </div>
-          <p className="mt-1 text-[13px] text-ink-500">Conectá tus herramientas para que los agentes accedan a datos reales.</p>
-
-          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              { name: 'GitHub', icon: '🐙', url: 'https://hackaton-codigo-facilito-agentes.onrender.com/auth/oauth/github/login', desc: 'Repos, PRs, issues' },
-              { name: 'Jira', icon: '📋', url: 'https://hackaton-codigo-facilito-agentes.onrender.com/oauth/jira/authorize?token=demo', desc: 'Issues, sprints, boards' },
-              { name: 'Vercel', icon: '▲', url: 'https://hackaton-codigo-facilito-agentes.onrender.com/oauth/vercel/authorize?token=demo', desc: 'Deploys, logs, domains' },
-              { name: 'Slack', icon: '💬', url: 'https://hackaton-codigo-facilito-agentes.onrender.com/oauth/slack/authorize?token=demo', desc: 'Alertas, notificaciones' },
-            ].map((integration, i) => (
-              <motion.div
-                key={integration.name}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 + i * 0.05 }}
-                className="rounded-xl border-2 border-ink-900 bg-paper p-4 shadow-hard-sm"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xl">{integration.icon}</span>
-                  <span className="rounded-full px-2 py-0.5 font-mono text-[9px] font-bold uppercase bg-ink-100 text-ink-500 border border-ink-200">
-                    disponible
-                  </span>
-                </div>
-                <h3 className="mt-2 text-[14px] font-bold text-ink-900">{integration.name}</h3>
-                <p className="text-[11px] text-ink-500">{integration.desc}</p>
-                <a
-                  href={integration.url}
-                  className="mt-3 block w-full rounded-lg border-2 border-ink-900 bg-paper py-1.5 text-center text-[11px] font-bold text-ink-900 transition hover:bg-violet-50 hover:border-violet-600"
-                >
-                  Conectar con {integration.name}
-                </a>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-
-        {/* ═══ Agentes IA ═══ */}
-        <AgentsPanel />
       </div>
 
       <NewProjectModal
