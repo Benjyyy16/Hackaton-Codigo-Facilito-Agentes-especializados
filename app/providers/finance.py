@@ -10,7 +10,6 @@ y permite que el health-check lo informe igual que al resto.
 from __future__ import annotations
 
 import csv
-import io
 from datetime import UTC, date, datetime
 from decimal import Decimal
 

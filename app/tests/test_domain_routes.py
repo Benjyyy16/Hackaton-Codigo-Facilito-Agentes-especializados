@@ -7,14 +7,11 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
-from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from decimal import Decimal
 from typing import Any
 from uuid import UUID, uuid4
 
 import httpx
-import pytest
 from fastapi import FastAPI
 
 from app.api.deps import (
@@ -24,13 +21,11 @@ from app.api.deps import (
     get_domain_repositories,
     get_ws_manager,
 )
-from app.core.config import Settings
+from app.core.exceptions import EntityNotFoundError
 from app.main import create_app
 from app.repositories.base import Page, Row
-from app.services.analysis_service import AnalysisService
 from app.services.decision_service import (
     ActionNotExecutableError,
-    DecisionService,
     DecisionStateError,
 )
 from app.tests.conftest import build_settings
@@ -169,8 +164,6 @@ def _timeline_row() -> Row:
 
 
 # --- Fake repos ----------------------------------------------------------------
-
-from app.core.exceptions import EntityNotFoundError
 
 
 class FakeRepo:

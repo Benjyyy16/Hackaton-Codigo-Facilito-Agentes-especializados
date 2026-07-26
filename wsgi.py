@@ -4,7 +4,7 @@ Inicializa la app FastAPI con fallback robusto.
 """
 import sys
 from pathlib import Path
-from datetime import datetime
+from datetime import UTC, datetime
 
 # Cargar .env si existe
 env_file = Path(__file__).parent / ".env"
@@ -27,7 +27,7 @@ async def root():
         "service": "commitment-twin-backend",
         "version": "0.1.0",
         "status": "running",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }
 
 @fallback_app.get("/health")

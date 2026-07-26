@@ -15,7 +15,6 @@ from fastapi.responses import RedirectResponse
 
 from app.api.deps import get_settings_dep
 from app.core.config import Settings
-from app.schemas.auth import TokenResponse
 from app.services.auth_service import AuthService
 
 router = APIRouter(prefix="/auth/oauth", tags=["oauth-login"])

@@ -1,6 +1,6 @@
 # Datgent Backend — Tareas
 
-Estado verificado ejecutando tests (619 passed) y leyendo el código fuente.
+Estado verificado ejecutando tests (670 passed, 0 fallos) y leyendo el código fuente.
 
 ## Fase 0 — Auditoría y estabilización
 
@@ -87,9 +87,10 @@ Estado verificado ejecutando tests (619 passed) y leyendo el código fuente.
   - sanitize_log_value (redacción de secretos)
   - assert_payload_size
   - cors_origins_for (restringido por entorno)
-- [x] CORS configurable por entorno (implementado en security.py; main.py usa allow_origins=["*"] por ahora)
+- [x] CORS configurable por entorno (`cors_origins_for` en security.py)
 - [x] Logging estructurado con request_id de correlación
 - [x] Exception handlers uniformes sin filtrar secretos ni trazas internas
-- [ ] CORS aplicado desde cors_origins_for en main.py — nota: la función existe pero main.py aún usa "*"
+- [x] CORS aplicado desde `cors_origins_for` en main.py — verificado por app/tests/test_cors.py:
+      producción solo permite FRONTEND_URL, sin comodín y sin localhost
 - [ ] Rate limiting en webhooks — nota: no implementado, se delega al hosting
 - [ ] Auditoría de seguridad formal — nota: las utilidades existen pero no se han integrado en todas las rutas que las necesitan

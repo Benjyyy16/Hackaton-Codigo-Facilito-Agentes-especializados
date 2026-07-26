@@ -18,7 +18,6 @@ from app.schemas.domain import (
     Evidence,
     EvidenceSourceType,
     Finding,
-    Severity,
     severity_for_score,
 )
 from app.schemas.finance_domain import FinanceAnalysis, FinanceSnapshot

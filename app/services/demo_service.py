@@ -7,7 +7,6 @@ idempotencia: ejecutar seed dos veces no duplica datos.
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -19,7 +18,6 @@ from app.repositories.domain import (
     ProjectRepository,
     SourceEventRepository,
 )
-from app.services.rag_service import RagService
 
 logger = get_logger("service.demo")
 

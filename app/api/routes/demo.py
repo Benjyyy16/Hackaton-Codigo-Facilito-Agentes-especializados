@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, status
 
 from app.api.deps import AnalysisServiceDep, DomainRepositoriesDep, SettingsDep
 from app.core.config import Environment, Settings

@@ -4,10 +4,9 @@ from __future__ import annotations
 
 from uuid import UUID, uuid4
 
-import httpx
 import pytest
 
-from app.schemas.domain import DocumentCreate, RetrievedChunk
+from app.schemas.domain import DocumentCreate
 from app.services.rag_service import CHUNK_MAX_CHARS, RagService
 from app.tests.conftest import build_settings, client_for, StubStorage
 from app.tests.fakes.supabase import FakeSupabaseClient
@@ -90,7 +89,7 @@ async def test_retrieve_filters_by_project_id(
     """El filtro project_id se pasa al repositorio."""
     fake_client.for_table("documents").returns([FAKE_DOC_ROW])
     pid = UUID("b0000000-0000-4000-8000-000000000099")
-    result = await rag.retrieve("test", project_id=pid)
+    await rag.retrieve("test", project_id=pid)
     calls = fake_client.for_table("documents").calls
     eq_calls = [c for c in calls if c.method == "eq"]
     assert any(c.args == ("project_id", str(pid)) for c in eq_calls)
@@ -103,7 +102,7 @@ async def test_retrieve_filters_by_commitment_id(
     """El filtro commitment_id se pasa al repositorio."""
     fake_client.for_table("documents").returns([FAKE_DOC_ROW])
     cid = UUID("b0000000-0000-4000-8000-000000000098")
-    result = await rag.retrieve("test", commitment_id=cid)
+    await rag.retrieve("test", commitment_id=cid)
     calls = fake_client.for_table("documents").calls
     eq_calls = [c for c in calls if c.method == "eq"]
     assert any(c.args == ("commitment_id", str(cid)) for c in eq_calls)

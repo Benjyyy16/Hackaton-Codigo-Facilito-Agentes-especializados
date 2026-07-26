@@ -8,7 +8,7 @@ centavo de error de redondeo en un hallazgo destruye la confianza del auditor.
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal
 from typing import Annotated
 

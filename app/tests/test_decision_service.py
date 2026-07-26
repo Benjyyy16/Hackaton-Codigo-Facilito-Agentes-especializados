@@ -12,7 +12,7 @@ Valida:
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
@@ -24,7 +24,7 @@ from app.services.decision_service import (
     DecisionService,
     DecisionStateError,
 )
-from app.websocket.manager import ConnectionManager, EventType, WsEvent
+from app.websocket.manager import ConnectionManager, EventType
 
 
 # --- Helpers -------------------------------------------------------------------
@@ -261,8 +261,8 @@ async def test_executor_raises_marks_failed_no_propagation():
         decision_row=row,
         executors={ActionType.UPDATE_JIRA_ISSUE: executor},
     )
-    # No propaga
-    result = await svc.execute(uuid4(), "op")
+    # No propaga: el fallo del ejecutor se registra, no se eleva.
+    await svc.execute(uuid4(), "op")
     # Se marcó como failed
     mark_calls = mocks["decisions"].mark_execution.call_args_list
     assert any(

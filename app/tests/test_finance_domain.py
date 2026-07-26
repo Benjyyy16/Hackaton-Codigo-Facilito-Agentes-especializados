@@ -19,8 +19,6 @@ from app.providers.finance import FinanceProvider
 from app.schemas.domain import EvidenceSourceType, Severity
 from app.schemas.finance_domain import (
     BudgetLine,
-    FinanceAnalysis,
-    FinanceSnapshot,
     LaborEntry,
     Penalty,
 )

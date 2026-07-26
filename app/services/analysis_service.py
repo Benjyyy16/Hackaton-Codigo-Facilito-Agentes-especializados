@@ -20,7 +20,7 @@ from uuid import UUID
 from app.agents.risk_orchestrator import RiskOrchestrator
 from app.agents.specialized import AgentContext
 from app.core.logging import get_logger
-from app.llm.base import LLMError, LLMProvider
+from app.llm.base import LLMProvider
 from app.repositories.domain import (
     AgentRunRepository,
     AlertRepository,
@@ -36,12 +36,10 @@ from app.repositories.domain import (
 )
 from app.schemas.domain import (
     AgentOutput,
-    AgentRunStatus,
     CommitmentSnapshot,
     ProjectSnapshot,
     RetrievedChunk,
     RiskCase,
-    Severity,
 )
 from app.websocket.manager import ConnectionManager, EventType, WsEvent
 

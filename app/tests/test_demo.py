@@ -12,14 +12,9 @@ Valida:
 
 from __future__ import annotations
 
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import UUID
 
-import httpx
 import pytest
 
-from app.core.config import Environment
 from app.providers.registry import ProviderRegistry
 from app.services.demo_service import (
     DEMO_COMMITMENT_ID,

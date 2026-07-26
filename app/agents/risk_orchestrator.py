@@ -36,7 +36,6 @@ from app.schemas.domain import (
     RiskCase,
     Scenario,
     ScenarioKind,
-    Severity,
     severity_for_score,
 )
 

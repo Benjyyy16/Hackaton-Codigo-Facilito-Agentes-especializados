@@ -2,3 +2,8 @@
 
 pytest==9.1.1
 pytest-asyncio==1.4.0
+
+# Lint y tipado. Versiones fijadas: un cambio de reglas entre versiones menores de ruff
+# convierte una suite verde en roja sin que nadie haya tocado el código.
+ruff==0.9.3
+mypy==1.14.1

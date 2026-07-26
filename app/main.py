@@ -23,6 +23,7 @@ from app.api.routes import demo as demo_routes, documents as documents_routes
 from app.core.config import APP_VERSION, Settings, get_settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import configure_logging, get_logger, set_request_id
+from app.core.security import cors_origins_for
 from app.providers.github import GitHubProvider
 from app.providers.jira import JiraProvider
 from app.providers.notion import NotionProvider
@@ -133,13 +134,29 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.providers = ProviderRegistry()
     app.state.ws_manager = ConnectionManager()
 
-    # CORS
+    # CORS restringido por entorno.
+    #
+    # ``allow_origins=["*"]`` junto con ``allow_credentials=True`` es una combinación que
+    # los navegadores rechazan y que, si funcionara, permitiría a cualquier sitio hacer
+    # peticiones autenticadas contra esta API. Los orígenes se derivan de FRONTEND_URL y
+    # del entorno: en producción solo el frontend declarado; en desarrollo también
+    # localhost.
+    allowed_origins = cors_origins_for(resolved)
+    if not allowed_origins:
+        # Sin FRONTEND_URL no hay nada que permitir. Se deja la lista vacía en lugar de
+        # abrir a todos: un despliegue mal configurado debe fallar de forma visible en el
+        # navegador, no quedar abierto en silencio.
+        logger.warning(
+            "CORS sin orígenes permitidos: falta FRONTEND_URL. "
+            "El frontend recibirá errores de CORS hasta que se configure."
+        )
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=allowed_origins,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
     )
 
     @app.middleware("http")
@@ -190,15 +207,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
 
 if __name__ == "__main__":  # pragma: no cover - arranque manual
+    import os
+
     import uvicorn
 
     # Se arranca con la factoría, no con una instancia de módulo. Instanciar la app al importar
     # obligaría a tener el entorno completo resuelto solo para importar el módulo, incluida la
     # recolección de tests.
+    #
+    # El puerto viene del entorno porque es lo que hace Render: fija PORT y espera que el
+    # proceso escuche ahí. Hardcodearlo funcionaría en local y fallaría en el despliegue.
     uvicorn.run(
         "app.main:create_app",
         factory=True,
-        host="127.0.0.1",
-        port=8000,
+        host=os.environ.get("HOST", "127.0.0.1"),
+        port=int(os.environ.get("PORT", "8000")),
         reload=not get_settings().is_production,
     )

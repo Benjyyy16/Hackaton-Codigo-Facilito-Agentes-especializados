@@ -6,10 +6,8 @@ penalizada por cobertura, cadena causal, pre-mortem, 3 escenarios, y el caso dem
 
 from __future__ import annotations
 
-import json
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from decimal import Decimal
-from unittest.mock import patch
 
 import pytest
 
@@ -22,8 +20,6 @@ from app.agents.risk_orchestrator import (
 )
 from app.agents.specialized.base import AgentContext, BaseSpecializedAgent
 from app.agents.specialized.code_agent import CodeAgent
-from app.agents.specialized.database_agent import DatabaseAgent
-from app.agents.specialized.finance_agent import FinanceAgent
 from app.agents.specialized.jira_agent import JiraAgent
 from app.schemas.domain import (
     AgentOutput,
@@ -35,7 +31,6 @@ from app.schemas.domain import (
     Severity,
 )
 from app.tests.factories_domain import (
-    FINANCE_SEED_PATH,
     NOW,
     finance_signal,
     github_signal,

@@ -8,11 +8,8 @@ acciones requieren aprobación humana.
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from decimal import Decimal
 
-import pytest
 
-from app.agents.specialized.base import AgentContext
 from app.agents.specialized.code_agent import (
     COVERAGE_FLOOR,
     CodeAgent,
@@ -25,24 +22,20 @@ from app.agents.specialized.database_agent import (
     INDEX_ROW_THRESHOLD,
     _is_permissive,
 )
-from app.agents.specialized.finance_agent import ESCALATION_EXPOSURE, FinanceAgent
+from app.agents.specialized.finance_agent import FinanceAgent
 from app.agents.specialized.jira_agent import (
     DUE_SOON_DAYS,
     JiraAgent,
     REASSIGNMENT_THRESHOLD,
     STALE_DAYS,
-    WEIGHT_BLOCKED,
-    WEIGHT_OVERDUE,
     _as_datetime,
 )
 from app.schemas.domain import AgentRunStatus, Severity
 from app.tests.factories_domain import (
-    FINANCE_SEED_PATH,
     NOW,
     finance_signal,
     github_signal,
     jira_signal,
-    make_commitment,
     make_context,
     make_open_pr,
     make_table,

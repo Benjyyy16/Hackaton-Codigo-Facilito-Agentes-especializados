@@ -7,9 +7,7 @@ parseo JSON, reintentos, backoff, sanitización de build_context y prompt_versio
 from __future__ import annotations
 
 import json
-import time
 from typing import Any
-from unittest.mock import patch
 
 import httpx
 import pytest

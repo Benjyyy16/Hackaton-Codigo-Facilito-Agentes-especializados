@@ -2,16 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Annotated
 
 import os
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from app.api.deps import get_settings_dep
-from app.core.config import Settings
 
 router = APIRouter(prefix="/agents", tags=["agents-chat"])
 

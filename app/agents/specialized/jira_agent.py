@@ -17,7 +17,6 @@ from typing import Any, ClassVar, Final
 from app.agents.specialized.base import AgentContext, BaseSpecializedAgent
 from app.schemas.domain import (
     AgentOutput,
-    Evidence,
     EvidenceSourceType,
     Finding,
     RecommendedAction,
@@ -73,7 +72,6 @@ class JiraAgent(BaseSpecializedAgent):
 
         issue_key = str(signal.get("issue_key") or "desconocido")
         url = signal.get("url")
-        now = context.now
 
         findings: list[Finding] = []
         missing: list[str] = []

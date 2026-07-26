@@ -15,18 +15,16 @@ Valida:
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from decimal import Decimal
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID, uuid4
 
 import pytest
 
-from app.agents.specialized.base import AgentContext, BaseSpecializedAgent
+from app.agents.specialized.base import AgentContext
 from app.core.exceptions import EntityNotFoundError
 from app.schemas.domain import (
     AgentOutput,
-    AgentRunStatus,
     Evidence,
     EvidenceSourceType,
     Finding,

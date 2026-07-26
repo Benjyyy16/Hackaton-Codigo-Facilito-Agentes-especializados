@@ -153,14 +153,19 @@ class NullLLMProvider:
                 field_values[field_name] = field_info.default_factory()
             else:
                 # Campo requerido sin default: valor placeholder explícito según tipo.
+                #
+                # Se compara con ``is`` y no con ``==``: las anotaciones de tipo son
+                # objetos singleton, así que la identidad es la comparación correcta y
+                # ``==`` sobre un tipo genérico puede invocar ``__eq__`` con resultados
+                # sorprendentes.
                 annotation = field_info.annotation
-                if annotation is str or annotation == str:
+                if annotation is str:
                     field_values[field_name] = "No disponible (modo reserva)"
-                elif annotation is int or annotation == int:
+                elif annotation is int:
                     field_values[field_name] = 0
-                elif annotation is float or annotation == float:
+                elif annotation is float:
                     field_values[field_name] = 0.0
-                elif annotation is bool or annotation == bool:
+                elif annotation is bool:
                     field_values[field_name] = False
                 elif annotation is list or str(annotation).startswith("list"):
                     field_values[field_name] = []

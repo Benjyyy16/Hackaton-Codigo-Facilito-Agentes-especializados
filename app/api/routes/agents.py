@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 
@@ -77,9 +77,21 @@ async def list_agents() -> list[AgentInfo]:
 
 @router.post(
     "/analyze",
-    summary="Ejecutar análisis de riesgo",
-    description="Ejecuta el pipeline de agentes sobre un contexto dado y devuelve el resultado.",
+    summary="[Legacy] Análisis rápido sin persistencia",
+    description=(
+        "**Ruta heredada.** Ejecuta el orquestador antiguo (`app.agents.orchestrator`) sobre "
+        "un contexto pasado a mano y devuelve el resultado sin persistir nada.\n\n"
+        "Se conserva porque el frontend de la demo la consume. Para el análisis completo del "
+        "dominio —con agentes auditados en `agent_runs`, hallazgos y evidencia persistidos, "
+        "caso de riesgo consolidado, alerta, decisiones sujetas a aprobación y difusión por "
+        "WebSocket— usar **`POST /commitments/{commitment_id}/analyze`**.\n\n"
+        "Diferencias frente al pipeline nuevo:\n"
+        "- no escribe en base de datos, así que no hay rastro de auditoría;\n"
+        "- no produce cadena causal, pre-mortem ni escenarios;\n"
+        "- no crea decisiones, así que no hay nada que aprobar."
+    ),
     response_model=AnalysisResult,
+    deprecated=True,
 )
 async def run_analysis(
     request: AnalysisRequest,

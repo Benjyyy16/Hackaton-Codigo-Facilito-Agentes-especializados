@@ -194,7 +194,8 @@ class GitHubProvider:
     async def fetch_events(self, request: SyncRequest) -> AsyncIterator[ExternalEvent]:
         if self._http is None:
             return
-        org = self._settings.GITHUB_ORG or ""
+        # El repositorio llega en la petición: GITHUB_ORG solo serviría para
+        # completar un nombre corto, y aquí siempre viene "owner/repo".
         repo_path = request.workspace_key  # ej: "owner/repo"
 
         page = 1

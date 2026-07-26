@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import hashlib
 import hmac as hmac_mod
-from unittest.mock import patch
 
 import pytest
 

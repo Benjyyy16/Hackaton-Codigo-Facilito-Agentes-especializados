@@ -11,7 +11,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from app.agents.specialized.base import AgentContext
 from app.schemas.domain import CommitmentSnapshot, Priority, ProjectSnapshot

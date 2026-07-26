@@ -11,9 +11,8 @@ Valida:
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any
-from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest

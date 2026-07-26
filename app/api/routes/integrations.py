@@ -120,7 +120,6 @@ def test_integration(
         raise HTTPException(status_code=404, detail="Integración no encontrada")
 
     creds = res.data[0].get("credentials", {})
-    cfg = res.data[0].get("config", {})
 
     # Test rápido por provider
     import httpx

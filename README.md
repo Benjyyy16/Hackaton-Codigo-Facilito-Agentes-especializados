@@ -164,7 +164,7 @@ La app arranca degradada si Supabase no está disponible: `/health` reporta el e
 .venv/bin/python -m pytest -q
 ```
 
-Estado actual: **653 passed** (incluye 47 tests de seguridad).
+Estado actual: **670 passed**, 0 fallos. `ruff check app` sin avisos.
 
 ## Endpoints
 
