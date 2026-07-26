@@ -1,0 +1,14 @@
+[project]
+name = "commitment-twin-backend"
+version = "0.1.0"
+description = "Backend de Commitment Twin: deteccion de compromisos en riesgo"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["app/tests"]
+asyncio_mode = "auto"
+addopts = "-q --strict-markers"
+filterwarnings = ["error::DeprecationWarning"]
+
+[tool.pytest_env]
+ENV = "test"

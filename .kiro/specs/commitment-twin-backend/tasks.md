@@ -1,0 +1,254 @@
+# Commitment Twin — Backend: Tareas
+
+Orden de implementación. Cada tarea es pequeña, deja el repositorio en estado ejecutable y
+termina con `pytest` en verde. Se implementa una a la vez.
+
+Referencias: `RF-n` y `RNF-n` remiten a `requirements.md`.
+
+---
+
+## 1. Entorno y configuración — completado
+
+- [x] 1.1 Entorno de desarrollo
+  - `.venv` con Python 3.12, `requirements.txt` con versiones fijadas.
+  - Retirar el scaffold plano de la raíz (`config.py`, `db.py`, `main.py`) al reemplazarlo
+    por `app/`.
+  - _Cierra: RNF-3.1_
+
+- [x] 1.2 `app/core/config.py`
+  - `Settings` con `pydantic-settings`, secretos como `SecretStr`.
+  - Fallo de arranque cuando falta una variable obligatoria, sin revelar valores.
+  - `.env.example` con todas las claves y valores vacíos.
+  - _Cierra: RF-1.1, RF-1.2, RF-1.3, RF-1.4_
+
+- [x] 1.3 `app/core/logging.py`
+  - Configuración central, nivel desde `Settings`, filtro de redacción de secretos.
+  - _Cierra: RNF-2.1, RNF-2.3_
+
+- [x] 1.4 `app/core/exceptions.py`
+  - Jerarquía de errores de dominio y cuerpo de error uniforme.
+  - _Cierra: RNF-1.4 (parcial), tabla de errores del diseño_
+
+- [x] 1.5 Tests
+  - Config falla sin variables obligatorias; `repr` de `Settings` no filtra secretos.
+
+Notas de implementación:
+
+- `load_settings(**overrides)` acepta sobrescrituras para que los tests desactiven la
+  lectura de `.env` con `_env_file=None`. El repositorio contiene `.env.local` real, así que
+  sin esa costura un test de variable ausente encontraría valores y pasaría en falso.
+- La cadena de excepciones se corta con `from None` al traducir `ValidationError`: su traza
+  incluye los valores de entrada y volcarla en el arranque filtraría secretos.
+- Los `.env` se leen en orden `(".env", ".env.local")`, con precedencia del entorno real.
+- El filtro de redacción ignora valores de menos de 8 caracteres, que producirían ruido
+  sobre texto legítimo.
+- Versiones resueltas: FastAPI 0.140.0, Pydantic 2.13.4, supabase 2.31.0, httpx 0.28.1,
+  pytest 9.1.1.
+
+---
+
+## 2. Persistencia
+
+- [ ] 2.1 `db/schema.sql`
+  - Cinco tablas, UUID, `created_at`, `updated_at`, `deleted_at` donde corresponde.
+  - Índices, restricción única de `fingerprint`, trigger de `updated_at`, RLS activo.
+  - Script idempotente y reejecutable.
+  - _Cierra: RF-7.3, RF-7.4, RF-7.6, RF-6.3_
+
+- [ ] 2.2 `app/integrations/supabase/client.py`
+  - `AsyncClient` vía `acreate_client`, creado y cerrado en el `lifespan`.
+  - _Cierra: RF-7.2 (base)_
+
+- [ ] 2.3 `app/repositories/base.py`
+  - CRUD, paginación con `count="exact"`, exclusión automática de borrados lógicos,
+    traducción de errores de `postgrest` (incluido `23505` → duplicado).
+  - _Cierra: RF-7.4, RF-7.5, RF-6.4_
+
+- [ ] 2.4 Los cinco repositorios
+  - `ProjectRepository`, `JiraEventRepository`, `CommitmentRepository`,
+    `RiskAnalysisRepository`, `AlertRepository`, cada uno con sus consultas propias.
+  - _Cierra: RF-7.1, RF-7.2_
+
+- [ ] 2.5 Tests
+  - Doble del `AsyncClient` que registra la cadena de llamadas; verificar filtro de
+    borrados, paginación y traducción del error de unicidad.
+
+---
+
+## 3. Aplicación y health check
+
+- [ ] 3.1 `app/main.py`
+  - App factory, `lifespan` (sustituye `@app.on_event`), registro de routers y de
+    manejadores de excepción, middleware de `request_id`.
+  - _Cierra: RNF-2.2, RNF-3.2_
+
+- [ ] 3.2 `app/api/deps.py`
+  - Dependencias de cliente, repositorios y servicios. `get_current_principal` como hueco
+    para JWT.
+  - _Cierra: RNF-1.6_
+
+- [ ] 3.3 `GET /health`
+  - Estado, versión, entorno y dependencias. Degradado devuelve `200`; comprobación con
+    timeout acotado.
+  - _Cierra: RF-2.1, RF-2.2, RF-2.3, RF-2.4_
+
+- [ ] 3.4 Tests
+  - `200` en condiciones normales; `200` degradado con Supabase caído; ausencia de datos
+    sensibles en la respuesta.
+
+---
+
+## 4. Cliente de Jira
+
+- [ ] 4.1 `app/integrations/jira/client.py`
+  - `httpx.AsyncClient` de vida larga, `BasicAuth`, timeouts explícitos.
+  - Reintentos: `429` con `Retry-After`, `5xx` exponencial, `401`/`403` sin reintento.
+  - Errores de dominio propios; logs sin cabeceras.
+  - _Cierra: RF-3.1 … RF-3.7_
+
+- [ ] 4.2 `iter_issues(jql)`
+  - Iterador asíncrono que encapsula la paginación. Confirmar la forma real de la API v3
+    contra credenciales.
+  - _Cierra: RF-4.3_
+
+- [ ] 4.3 `app/integrations/jira/normalizer.py`
+  - Payload de Jira → `NormalizedEvent`, conservando el payload original.
+  - _Cierra: RF-4.4, RF-5.6_
+
+- [ ] 4.4 Tests
+  - `httpx.MockTransport` para `429` con reintento, `5xx` agotando reintentos, `401` sin
+    reintento, y normalización de los tres tipos de evento.
+
+---
+
+## 5. Ingesta desde Jira
+
+- [ ] 5.1 `app/integrations/jira/security.py`
+  - Validación del secreto compartido con `hmac.compare_digest`, por cabecera o por
+    parámetro de consulta.
+  - _Cierra: RF-5.2, RNF-1.3_
+
+- [ ] 5.2 `app/services/webhook_service.py`
+  - Validar, normalizar, calcular `fingerprint`, detectar duplicado, persistir.
+  - _Cierra: RF-5.3, RF-5.4, RF-5.5, RF-6.1, RF-6.2_
+
+- [ ] 5.3 `POST /webhooks/jira`
+  - Respuesta rápida; análisis vía `BackgroundTasks`; el evento persiste aunque el análisis
+    falle.
+  - _Cierra: RF-5.1, RF-5.7, RF-5.8_
+
+- [ ] 5.4 `app/services/jira_sync_service.py` y `POST /jira/sync`
+  - JQL propio u obtenido de la clave de proyecto, paginación completa, recuento de
+    procesados, creados y omitidos, idempotencia, `404` si el proyecto no existe.
+  - _Cierra: RF-4.1 … RF-4.7_
+
+- [ ] 5.5 Tests
+  - Secreto inválido no persiste nada; duplicado responde `200` sin segunda inserción;
+    tipo no soportado responde `202`; sincronización repetida no duplica.
+
+---
+
+## 6. Agentes
+
+- [ ] 6.1 `app/agents/base.py`
+  - Protocolo `Agent`, `AgentContext`, `AgentOutcome`, `Signal`. Sin `fastapi`, sin
+    `supabase`.
+  - _Cierra: RF-8.2, RF-8.3_
+
+- [ ] 6.2 `CommitmentAgent`, `TechnicalAgent`, `FinancialAgent`
+  - Reglas determinísticas; `now` inyectado por contexto.
+  - _Cierra: RF-8.1, RF-8.7_
+
+- [ ] 6.3 `RiskAgent`
+  - Pesos como constantes con nombre; puntuación 0–100 y severidad por tramos.
+  - _Cierra: RF-8.5_
+
+- [ ] 6.4 `OrchestratorAgent`
+  - Agrega resultados; aísla el fallo de cada agente y marca `is_partial`.
+  - _Cierra: RF-8.5, RF-8.6_
+
+- [ ] 6.5 Tests
+  - Cada agente aislado, sin red ni base de datos; determinismo; fallo de un agente produce
+    análisis parcial en lugar de excepción.
+
+---
+
+## 7. Análisis, alertas y API de lectura
+
+- [ ] 7.1 `app/services/analysis_service.py`
+  - Compone contexto desde repositorios, ejecuta el orquestador, persiste el análisis.
+  - _Cierra: RF-8 (integración), RF-7.2_
+
+- [ ] 7.2 `app/services/alert_service.py`
+  - Umbral configurable: crear, actualizar la abierta, resolver al bajar del umbral.
+  - Impacto económico tomado de `FinancialAgent`.
+  - _Cierra: RF-9.1 … RF-9.4_
+
+- [ ] 7.3 `GET /events`, `GET /events/{event_id}`
+  - Paginación descendente, filtros por proyecto y tipo, `404`, `422` fuera de rango.
+  - _Cierra: RF-10.1, RF-10.2, RF-10.3, RF-10.6_
+
+- [ ] 7.4 `GET /alerts`, `GET /alerts/{alert_id}`
+  - Paginación, filtros por severidad y estado, `404`.
+  - _Cierra: RF-10.4, RF-10.5_
+
+- [ ] 7.5 `POST /analysis/run`
+  - Por evento o por proyecto; `404` si no existe; `422` si no se indica ninguno; persiste
+    y difunde igual que el webhook.
+  - _Cierra: RF-11.1 … RF-11.4_
+
+- [ ] 7.6 Schemas y OpenAPI
+  - Respuestas descritas por schemas; todos los endpoints en la documentación.
+  - _Cierra: RF-10.7, RNF-4.4_
+
+- [ ] 7.7 Tests
+  - Paginación, filtros, `404`, `422`, y umbral de alerta en sus tres transiciones.
+
+---
+
+## 8. Tiempo real
+
+- [ ] 8.1 `app/websocket/manager.py`
+  - `ConnectionManager` con `asyncio.Lock`; difusión aislada por cliente; sin clientes no
+    es error.
+  - _Cierra: RF-12.1, RF-12.3, RF-12.4, RF-12.5_
+
+- [ ] 8.2 `WS /ws/events`
+  - Acepta y mantiene la conexión; retira limpiamente al desconectar.
+  - _Cierra: RF-12.1, RF-12.3_
+
+- [ ] 8.3 Difusión desde el análisis
+  - `event.created`, `analysis.completed`, `alert.created`, `alert.resolved` como sobres
+    tipados.
+  - _Cierra: RF-12.2, RF-12.6, RF-12.7_
+
+- [ ] 8.4 Tests
+  - Conexión, recepción de difusión, desconexión sin afectar a otros clientes, difusión sin
+    clientes.
+
+---
+
+## 9. Cierre
+
+- [ ] 9.1 Suite completa en verde, sin red ni dependencias reales.
+  - _Cierra: RNF-4.1, RNF-4.2_
+
+- [ ] 9.2 Revisión de la regla de dependencia
+  - Ningún servicio, ruta o agente importa el cliente de Supabase; ninguna ruta contiene
+    lógica de negocio.
+  - _Cierra: RNF-3.2, RNF-3.3, RNF-3.4, RF-7.2, RF-8.3_
+
+- [ ] 9.3 Revisión de secretos
+  - Sin secretos en el repositorio; `SUPABASE_SERVICE_ROLE_KEY` ausente de toda respuesta;
+    logs limpios.
+  - _Cierra: RNF-1.1, RNF-1.2_
+
+- [ ] 9.4 `README` de arranque y registro del webhook en Jira
+  - Cómo levantar, cómo aplicar el esquema, cómo exponer el webhook para la demo.
+
+---
+
+## Fuera de alcance
+
+Frontend, componentes UI y cliente. Autenticación de usuario final. LLMs en el camino
+crítico. Django, Flask, Redis, Celery, Firebase, SQLite, SQLAlchemy, Alembic.
