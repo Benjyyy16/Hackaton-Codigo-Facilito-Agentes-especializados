@@ -1,0 +1,14 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Caveman Commit Messages",
+      "trigger": "UserPromptSubmit",
+      "matcher": "commit|push",
+      "action": {
+        "type": "command",
+        "command": "echo '{\"hookSpecificOutput\":{\"style\":\"caveman\",\"format\":\"terso\",\"maxChars\":50}}'"
+      }
+    }
+  ]
+}
