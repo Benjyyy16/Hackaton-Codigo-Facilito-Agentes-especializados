@@ -15,8 +15,9 @@ from contextlib import asynccontextmanager
 from typing import Final
 
 from fastapi import FastAPI, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import auth, finance, health, integrations, oauth, providers as provider_routes
+from app.api.routes import auth, finance, health, integrations, oauth, oauth_login, agents as agents_routes, providers as provider_routes
 from app.core.config import APP_VERSION, Settings, get_settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import configure_logging, get_logger, set_request_id
@@ -127,6 +128,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.storage = None
     app.state.providers = ProviderRegistry()
 
+    # CORS
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[
+            resolved.FRONTEND_URL,
+            "http://localhost:5173",
+            "http://localhost:3000",
+        ],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
     @app.middleware("http")
     async def _correlate_requests(
         request: Request, call_next: Callable[[Request], Awaitable[Response]]
@@ -152,6 +166,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(finance.router)
     app.include_router(integrations.router)
     app.include_router(oauth.router)
+    app.include_router(oauth_login.router)
+    app.include_router(agents_routes.router)
     app.include_router(health.router)
     app.include_router(provider_routes.router)
 
