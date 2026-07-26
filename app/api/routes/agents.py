@@ -115,6 +115,12 @@ async def run_analysis(
         owner="user",
         due_date=due_date,
         estimated_hours=request.estimated_hours,
+        raw_payload={
+            "key": request.issue_key,
+            "summary": request.title,
+            "status": "In Progress",
+            "source": "datgent-frontend",
+        },
     )
 
     commitment = CommitmentSnapshot(
