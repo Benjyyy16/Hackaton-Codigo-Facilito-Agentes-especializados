@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowRight, GitPullRequest, Plus, Unplug, Users } from 'lucide-react'
+import { ArrowRight, Bot, GitPullRequest, Play, Plus, Plug, Unplug, Users, Zap } from 'lucide-react'
 import { AppShell } from '@/components/app/AppShell'
 import { NewProjectModal } from '@/components/app/NewProjectModal'
 import { Button } from '@/components/ui/Button'
@@ -9,6 +9,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { Odometer, Stamp } from '@/components/ui/Bits'
 import { GitHubLogo, SupabaseLogo } from '@/components/brand/Logos'
 import { useAppStore } from '@/store/AppStore'
+import { getTokens } from '@/lib/api'
 import { cn } from '@/lib/cn'
 
 export default function Dashboard() {
@@ -250,6 +251,59 @@ export default function Dashboard() {
             <Stamp tone="violet">datos de demostración</Stamp>
           </div>
         )}
+
+        {/* ═══ Integraciones ═══ */}
+        <div className="mt-12">
+          <div className="flex items-center gap-2">
+            <Plug className="h-5 w-5 text-violet-600" />
+            <h2 className="font-display text-[24px] tracking-tightest text-ink-900">Integraciones</h2>
+          </div>
+          <p className="mt-1 text-[13px] text-ink-500">Conectá tus herramientas para que los agentes accedan a datos reales.</p>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { name: 'GitHub', icon: '🐙', status: 'connected', desc: 'Repos, PRs, issues' },
+              { name: 'Jira', icon: '📋', status: 'available', desc: 'Issues, sprints, boards' },
+              { name: 'Vercel', icon: '▲', status: 'available', desc: 'Deploys, logs, domains' },
+              { name: 'Slack', icon: '💬', status: 'available', desc: 'Alertas, notificaciones' },
+            ].map((integration, i) => (
+              <motion.div
+                key={integration.name}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 + i * 0.05 }}
+                className="rounded-xl border-2 border-ink-900 bg-paper p-4 shadow-hard-sm"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xl">{integration.icon}</span>
+                  <span className={cn(
+                    'rounded-full px-2 py-0.5 font-mono text-[9px] font-bold uppercase',
+                    integration.status === 'connected'
+                      ? 'bg-mint-100 text-mint-700 border border-mint-300'
+                      : 'bg-ink-100 text-ink-500 border border-ink-200'
+                  )}>
+                    {integration.status === 'connected' ? 'conectado' : 'disponible'}
+                  </span>
+                </div>
+                <h3 className="mt-2 text-[14px] font-bold text-ink-900">{integration.name}</h3>
+                <p className="text-[11px] text-ink-500">{integration.desc}</p>
+                <button
+                  className={cn(
+                    'mt-3 w-full rounded-lg border-2 py-1.5 text-[11px] font-bold transition',
+                    integration.status === 'connected'
+                      ? 'border-mint-500 bg-mint-50 text-mint-700'
+                      : 'border-ink-900 bg-paper text-ink-900 hover:bg-violet-50 hover:border-violet-600'
+                  )}
+                >
+                  {integration.status === 'connected' ? '✓ Conectado' : 'Conectar'}
+                </button>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+
+        {/* ═══ Agentes IA ═══ */}
+        <AgentsPanel />
       </div>
 
       <NewProjectModal
@@ -261,5 +315,187 @@ export default function Dashboard() {
         }}
       />
     </AppShell>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+interface AgentResult {
+  risk_score: number
+  severity: string
+  is_partial: boolean
+  financial_impact: number
+  outcomes: Array<{
+    agent: string
+    score: number
+    signals: Array<{ code: string; message: string; weight: number }>
+  }>
+  primary_reason: string | null
+}
+
+function AgentsPanel() {
+  const [result, setResult] = useState<AgentResult | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const agents = [
+    { name: 'commitment', label: 'Commitment Agent', desc: 'Analiza vencimientos y compromisos', icon: '📅' },
+    { name: 'technical', label: 'Technical Agent', desc: 'Detecta bloqueos y estancamiento', icon: '⚙️' },
+    { name: 'financial', label: 'Financial Agent', desc: 'Calcula impacto económico', icon: '💰' },
+    { name: 'risk', label: 'Risk Agent', desc: 'Compone riesgo global ponderado', icon: '🎯' },
+    { name: 'orchestrator', label: 'Orchestrator', desc: 'Ejecuta pipeline completo', icon: '🤖' },
+  ]
+
+  async function runAnalysis() {
+    setLoading(true)
+    setError(null)
+    setResult(null)
+    try {
+      const tokens = getTokens()
+      const res = await fetch('https://hackaton-codigo-facilito-agentes.onrender.com/agents/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(tokens ? { Authorization: `Bearer ${tokens.access_token}` } : {}),
+        },
+        body: JSON.stringify({
+          project_key: 'DATGENT',
+          issue_key: 'DATGENT-42',
+          title: 'Implementar sistema de multi-agentes',
+          due_date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+          estimated_hours: 40,
+          hourly_cost: 75,
+        }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.detail || res.statusText)
+      }
+      const data = await res.json()
+      setResult(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error ejecutando agentes')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const severityColor: Record<string, string> = {
+    low: 'bg-mint-100 text-mint-700 border-mint-300',
+    medium: 'bg-clay-100 text-clay-700 border-clay-300',
+    high: 'bg-orange-100 text-orange-700 border-orange-300',
+    critical: 'bg-rose-100 text-rose-700 border-rose-300',
+  }
+
+  return (
+    <div className="mt-12">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Bot className="h-5 w-5 text-violet-600" />
+          <h2 className="font-display text-[24px] tracking-tightest text-ink-900">Agentes IA</h2>
+        </div>
+        <Button onClick={runAnalysis} loading={loading} size="sm">
+          <Play className="h-3.5 w-3.5" />
+          Ejecutar análisis
+        </Button>
+      </div>
+      <p className="mt-1 text-[13px] text-ink-500">
+        Pipeline de agentes especializados para detección de riesgos. Ejecutá manualmente para ver el resultado.
+      </p>
+
+      {/* Grid de agentes */}
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        {agents.map((agent, i) => (
+          <motion.div
+            key={agent.name}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 + i * 0.04 }}
+            className="rounded-xl border-2 border-ink-900 bg-paper p-3 shadow-hard-sm"
+          >
+            <span className="text-lg">{agent.icon}</span>
+            <h3 className="mt-1 text-[12px] font-bold text-ink-900">{agent.label}</h3>
+            <p className="text-[10px] leading-tight text-ink-500">{agent.desc}</p>
+            {result && (
+              <div className="mt-2 rounded bg-ink-50 px-1.5 py-1">
+                <span className="font-mono text-[10px] font-bold text-violet-700">
+                  score: {result.outcomes.find(o => o.agent === agent.name)?.score ?? '—'}
+                </span>
+              </div>
+            )}
+          </motion.div>
+        ))}
+      </div>
+
+      {/* Resultado del análisis */}
+      {error && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="mt-4 rounded-xl border-2 border-rose-300 bg-rose-50 p-4"
+        >
+          <p className="text-[13px] font-medium text-rose-700">{error}</p>
+        </motion.div>
+      )}
+
+      {result && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-5 rounded-xl border-2 border-ink-900 bg-paper p-5 shadow-hard"
+        >
+          <div className="flex items-center justify-between">
+            <h3 className="text-[16px] font-bold text-ink-900">Resultado del Análisis</h3>
+            <span className={cn(
+              'rounded-full border px-3 py-1 font-mono text-[11px] font-bold uppercase',
+              severityColor[result.severity] || 'bg-ink-100 text-ink-600'
+            )}>
+              {result.severity} · {result.risk_score}/100
+            </span>
+          </div>
+
+          {result.is_partial && (
+            <p className="mt-2 text-[11px] font-medium text-clay-600">
+              ⚠️ Análisis parcial — algún agente no pudo ejecutarse
+            </p>
+          )}
+
+          {result.financial_impact > 0 && (
+            <p className="mt-2 text-[13px] text-ink-700">
+              💰 Impacto económico estimado: <span className="font-bold">${result.financial_impact.toLocaleString()}</span>
+            </p>
+          )}
+
+          {result.primary_reason && (
+            <p className="mt-1 text-[13px] text-ink-700">
+              🎯 Señal dominante: <span className="font-mono font-bold text-violet-700">{result.primary_reason}</span>
+            </p>
+          )}
+
+          {/* Señales por agente */}
+          <div className="mt-4 space-y-3">
+            {result.outcomes.map((outcome) => (
+              <div key={outcome.agent} className="rounded-lg border border-ink-200 p-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[12px] font-bold text-ink-900 capitalize">{outcome.agent}</span>
+                  <span className="font-mono text-[11px] font-bold text-violet-700">{outcome.score}/100</span>
+                </div>
+                {outcome.signals.length > 0 && (
+                  <ul className="mt-1.5 space-y-0.5">
+                    {outcome.signals.map((signal, si) => (
+                      <li key={si} className="flex items-center gap-2 text-[11px] text-ink-600">
+                        <Zap className="h-3 w-3 text-clay-500" />
+                        <span className="font-mono text-[9px] text-ink-400">[{signal.code}]</span>
+                        {signal.message}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+    </div>
   )
 }
