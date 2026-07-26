@@ -262,10 +262,10 @@ export default function Dashboard() {
 
           <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              { name: 'GitHub', icon: '🐙', status: 'connected', desc: 'Repos, PRs, issues' },
-              { name: 'Jira', icon: '📋', status: 'available', desc: 'Issues, sprints, boards' },
-              { name: 'Vercel', icon: '▲', status: 'available', desc: 'Deploys, logs, domains' },
-              { name: 'Slack', icon: '💬', status: 'available', desc: 'Alertas, notificaciones' },
+              { name: 'GitHub', icon: '🐙', url: 'https://hackaton-codigo-facilito-agentes.onrender.com/auth/oauth/github/login', desc: 'Repos, PRs, issues' },
+              { name: 'Jira', icon: '📋', url: 'https://hackaton-codigo-facilito-agentes.onrender.com/oauth/jira/authorize?token=demo', desc: 'Issues, sprints, boards' },
+              { name: 'Vercel', icon: '▲', url: 'https://hackaton-codigo-facilito-agentes.onrender.com/oauth/vercel/authorize?token=demo', desc: 'Deploys, logs, domains' },
+              { name: 'Slack', icon: '💬', url: 'https://hackaton-codigo-facilito-agentes.onrender.com/oauth/slack/authorize?token=demo', desc: 'Alertas, notificaciones' },
             ].map((integration, i) => (
               <motion.div
                 key={integration.name}
@@ -276,27 +276,18 @@ export default function Dashboard() {
               >
                 <div className="flex items-center justify-between">
                   <span className="text-xl">{integration.icon}</span>
-                  <span className={cn(
-                    'rounded-full px-2 py-0.5 font-mono text-[9px] font-bold uppercase',
-                    integration.status === 'connected'
-                      ? 'bg-mint-100 text-mint-700 border border-mint-300'
-                      : 'bg-ink-100 text-ink-500 border border-ink-200'
-                  )}>
-                    {integration.status === 'connected' ? 'conectado' : 'disponible'}
+                  <span className="rounded-full px-2 py-0.5 font-mono text-[9px] font-bold uppercase bg-ink-100 text-ink-500 border border-ink-200">
+                    disponible
                   </span>
                 </div>
                 <h3 className="mt-2 text-[14px] font-bold text-ink-900">{integration.name}</h3>
                 <p className="text-[11px] text-ink-500">{integration.desc}</p>
-                <button
-                  className={cn(
-                    'mt-3 w-full rounded-lg border-2 py-1.5 text-[11px] font-bold transition',
-                    integration.status === 'connected'
-                      ? 'border-mint-500 bg-mint-50 text-mint-700'
-                      : 'border-ink-900 bg-paper text-ink-900 hover:bg-violet-50 hover:border-violet-600'
-                  )}
+                <a
+                  href={integration.url}
+                  className="mt-3 block w-full rounded-lg border-2 border-ink-900 bg-paper py-1.5 text-center text-[11px] font-bold text-ink-900 transition hover:bg-violet-50 hover:border-violet-600"
                 >
-                  {integration.status === 'connected' ? '✓ Conectado' : 'Conectar'}
-                </button>
+                  Conectar con {integration.name}
+                </a>
               </motion.div>
             ))}
           </div>
@@ -560,6 +551,143 @@ function AgentsPanel() {
           </div>
         </motion.div>
       )}
+
+      {/* ═══ Chat con Agentes ═══ */}
+      <AgentChat />
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+interface ChatMessage {
+  role: 'user' | 'agent'
+  content: string
+  agent?: string
+}
+
+function AgentChat() {
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    { role: 'agent', content: 'Hola! Soy el Orchestrator de Datgent. Preguntame sobre riesgos, compromisos o impacto financiero de tus proyectos.', agent: 'orchestrator' },
+  ])
+  const [input, setInput] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  async function handleSend(e: React.FormEvent) {
+    e.preventDefault()
+    if (!input.trim() || loading) return
+
+    const userMsg = input.trim()
+    setInput('')
+    setMessages(prev => [...prev, { role: 'user', content: userMsg }])
+    setLoading(true)
+
+    try {
+      // Ejecutar análisis con el texto como título del issue
+      const tokens = getTokens()
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (tokens?.access_token) headers['Authorization'] = `Bearer ${tokens.access_token}`
+
+      const res = await fetch('https://hackaton-codigo-facilito-agentes.onrender.com/agents/analyze', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          project_key: 'CHAT',
+          issue_key: 'CHAT-' + Date.now(),
+          title: userMsg,
+          due_date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+          estimated_hours: 20,
+          hourly_cost: 60,
+        }),
+      })
+
+      if (!res.ok) throw new Error('Error del servidor')
+      const data = await res.json()
+
+      // Formatear respuesta de los agentes
+      const signals = data.outcomes
+        .flatMap((o: { agent: string; signals: Array<{ message: string }> }) =>
+          o.signals.map((s: { message: string }) => `• **${o.agent}**: ${s.message}`)
+        )
+        .join('\n')
+
+      const response = [
+        `📊 **Análisis de riesgo:** ${data.risk_score}/100 (${data.severity})`,
+        data.financial_impact > 0 ? `💰 **Impacto:** $${data.financial_impact.toLocaleString()}` : '',
+        data.primary_reason ? `🎯 **Razón principal:** ${data.primary_reason}` : '',
+        signals ? `\n**Señales detectadas:**\n${signals}` : 'No se detectaron señales de riesgo.',
+      ].filter(Boolean).join('\n')
+
+      setMessages(prev => [...prev, { role: 'agent', content: response, agent: 'orchestrator' }])
+    } catch {
+      setMessages(prev => [...prev, {
+        role: 'agent',
+        content: 'Servidor cargando... Intentá de nuevo en unos segundos.',
+        agent: 'orchestrator',
+      }])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="mt-8 rounded-xl border-2 border-ink-900 bg-paper shadow-hard overflow-hidden">
+      <div className="flex items-center gap-2 border-b-2 border-ink-200 bg-violet-50 px-4 py-3">
+        <Bot className="h-4 w-4 text-violet-600" />
+        <span className="text-[13px] font-bold text-ink-900">Chat con Agentes</span>
+        <span className="ml-auto rounded-full bg-mint-100 px-2 py-0.5 font-mono text-[9px] font-bold text-mint-700 border border-mint-300">
+          en vivo
+        </span>
+      </div>
+
+      {/* Messages */}
+      <div className="h-[300px] overflow-y-auto p-4 space-y-3">
+        {messages.map((msg, i) => (
+          <div key={i} className={cn('flex', msg.role === 'user' ? 'justify-end' : 'justify-start')}>
+            <div className={cn(
+              'max-w-[80%] rounded-xl px-3.5 py-2.5 text-[13px] leading-relaxed',
+              msg.role === 'user'
+                ? 'bg-violet-600 text-white'
+                : 'bg-ink-100 text-ink-800'
+            )}>
+              {msg.role === 'agent' && (
+                <span className="mb-1 block font-mono text-[9px] font-bold uppercase text-violet-600">
+                  🤖 {msg.agent}
+                </span>
+              )}
+              <span className="whitespace-pre-wrap">{msg.content}</span>
+            </div>
+          </div>
+        ))}
+        {loading && (
+          <div className="flex justify-start">
+            <div className="rounded-xl bg-ink-100 px-3.5 py-2.5">
+              <span className="flex items-center gap-1.5 text-[12px] text-ink-500">
+                <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-violet-400" />
+                Analizando...
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Input */}
+      <form onSubmit={handleSend} className="flex items-center gap-2 border-t-2 border-ink-200 p-3">
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Describí un compromiso o preguntá sobre riesgos..."
+          className="flex-1 rounded-lg border-2 border-ink-200 bg-paper px-3 py-2 text-[13px] text-ink-900 placeholder:text-ink-400 focus:border-violet-600 focus:outline-none"
+        />
+        <button
+          type="submit"
+          disabled={loading || !input.trim()}
+          className="grid h-9 w-9 place-items-center rounded-lg border-2 border-ink-900 bg-violet-600 text-white transition hover:bg-violet-700 disabled:opacity-40"
+        >
+          <ArrowRight className="h-4 w-4" />
+        </button>
+      </form>
     </div>
   )
 }
