@@ -12,7 +12,8 @@ from typing import Annotated, Any
 from fastapi import Depends, Request
 
 from app.core.config import Settings
-from app.core.exceptions import SupabaseError
+from app.core.exceptions import IntegrationError, SupabaseError
+from app.integrations.jira.client import JiraClient
 from app.repositories.alerts import AlertRepository
 from app.repositories.commitments import CommitmentRepository
 from app.repositories.jira_events import JiraEventRepository
@@ -42,6 +43,17 @@ def get_supabase_client(request: Request) -> Any:
 
 SettingsDep = Annotated[Settings, Depends(get_settings_dep)]
 SupabaseDep = Annotated[Any, Depends(get_supabase_client)]
+
+
+def get_jira_client(request: Request, settings: SettingsDep) -> JiraClient:
+    """Cliente de Jira sobre el ``httpx.AsyncClient`` creado en el ``lifespan``."""
+    http = getattr(request.app.state, "jira_http", None)
+    if http is None:
+        raise IntegrationError("El cliente de Jira no está inicializado.")
+    return JiraClient(http, max_retries=settings.HTTP_MAX_RETRIES)
+
+
+JiraClientDep = Annotated[JiraClient, Depends(get_jira_client)]
 
 
 # --- Repositorios -------------------------------------------------------------------

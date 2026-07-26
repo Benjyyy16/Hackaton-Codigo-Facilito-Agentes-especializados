@@ -18,6 +18,10 @@ from app.api.routes import health
 from app.core.config import APP_NAME, APP_VERSION, Settings, get_settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import configure_logging, get_logger, set_request_id
+from app.integrations.jira.client import (
+    close_jira_http_client,
+    create_jira_http_client,
+)
 from app.integrations.supabase.client import (
     close_supabase_client,
     create_supabase_client,
@@ -38,6 +42,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """
     settings: Settings = app.state.settings
     app.state.supabase = None
+    app.state.jira_http = None
 
     try:
         app.state.supabase = await create_supabase_client(settings)
@@ -46,6 +51,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             "Arranque sin cliente de Supabase; el servicio queda degradado",
             exc_info=error,
         )
+
+    # El cliente HTTP de Jira es de vida larga y se reutiliza: crear uno por petición
+    # desperdiciaría el pool de conexiones y el handshake TLS.
+    app.state.jira_http = create_jira_http_client(settings)
 
     logger.info(
         "Servicio %s %s iniciado en entorno %s",
@@ -56,7 +65,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         yield
     finally:
+        await close_jira_http_client(app.state.jira_http)
         await close_supabase_client(app.state.supabase)
+        app.state.jira_http = None
         app.state.supabase = None
         logger.info("Servicio detenido")
 
@@ -82,6 +93,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.settings = resolved
     app.state.supabase = None
+    app.state.jira_http = None
 
     @app.middleware("http")
     async def _correlate_requests(

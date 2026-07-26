@@ -168,26 +168,56 @@ Pendiente conocido:
 
 ---
 
-## 4. Cliente de Jira
+## 4. Cliente de Jira — completado
 
-- [ ] 4.1 `app/integrations/jira/client.py`
+- [x] 4.1 `app/integrations/jira/client.py`
   - `httpx.AsyncClient` de vida larga, `BasicAuth`, timeouts explícitos.
   - Reintentos: `429` con `Retry-After`, `5xx` exponencial, `401`/`403` sin reintento.
   - Errores de dominio propios; logs sin cabeceras.
   - _Cierra: RF-3.1 … RF-3.7_
 
-- [ ] 4.2 `iter_issues(jql)`
-  - Iterador asíncrono que encapsula la paginación. Confirmar la forma real de la API v3
-    contra credenciales.
+- [x] 4.2 `iter_issues(jql)`
+  - Iterador asíncrono que encapsula la paginación.
   - _Cierra: RF-4.3_
 
-- [ ] 4.3 `app/integrations/jira/normalizer.py`
+- [x] 4.3 `app/integrations/jira/normalizer.py`
   - Payload de Jira → `NormalizedEvent`, conservando el payload original.
   - _Cierra: RF-4.4, RF-5.6_
 
-- [ ] 4.4 Tests
+- [x] 4.4 Tests
   - `httpx.MockTransport` para `429` con reintento, `5xx` agotando reintentos, `401` sin
     reintento, y normalización de los tres tipos de evento.
+
+Hallazgo que cambió el diseño:
+
+- El endpoint `/rest/api/3/search` **está retirado** de Jira Cloud y responde `410 Gone`. Se
+  usa `/rest/api/3/search/jql`, con paginación por `nextPageToken` e `isLast`, sin `total` ni
+  `startAt`. La primera llamada no debe enviar el token. Detalle en `design.md` 6.2.
+- Hay casos documentados de `isLast` que nunca llega a `true` con tokens encadenados sin fin.
+  `iter_issues` corta además por token ya visto y por tope duro de páginas
+  (`MAX_PAGES = 200`), ambos con test propio que provoca el bucle a propósito.
+
+Notas de implementación:
+
+- Los reintentos son propios y no delegados a `httpx`, porque `429` y `5xx` merecen trato
+  distinto: el primero respeta `Retry-After`, el segundo usa espera exponencial con jitter.
+  El jitter evita que varias tareas reintenten sincronizadas.
+- `Retry-After` se acota a `MAX_RETRY_DELAY = 30 s`: un valor desmesurado bloquearía la tarea.
+  La variante con fecha HTTP se ignora y se recurre a la espera exponencial, en lugar de
+  arrastrar un parser de fechas por un caso que Jira no usa en práctica.
+- `410` se traduce con un mensaje propio, porque es exactamente lo que devuelve el endpoint
+  retirado y conviene que el diagnóstico sea inmediato.
+- El normalizador absorbe dos rarezas de Jira: `timeoriginalestimate` viene en **segundos**
+  (tratarlo como horas inflaría el impacto económico por 3600), y el cuerpo de los
+  comentarios llega en Atlassian Document Format, que se aplana a texto.
+- `occurred_at` prioriza el `timestamp` del webhook, luego la marca del comentario, luego
+  `updated` y `created`. Forma parte de la huella, así que la precedencia es explícita y está
+  cubierta con tests.
+- Una fecha ilegible devuelve `None` en lugar de elevar: un campo roto no debe tumbar la
+  ingesta de un evento por lo demás válido.
+- `create_jira_http_client` acepta un `transport` opcional para que los tests inyecten
+  `MockTransport` sin tocar atributos privados del cliente.
+- El cliente HTTP se crea en el `lifespan` y se cierra al apagar, verificado con test.
 
 ---
 

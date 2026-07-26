@@ -225,11 +225,23 @@ cliente por petición desperdiciaría el pool de conexiones.
 
 ### 6.2 Búsqueda por JQL
 
-La sincronización inicial usa la búsqueda por JQL de la API v3 de Jira y pagina hasta
-agotar resultados. Jira Cloud está migrando la paginación de `startAt`/`total` a un
-`nextPageToken`, así que el cliente encapsula el detalle detrás de un iterador asíncrono
-`iter_issues(jql)`; el servicio consume issues y no sabe cómo se paginan. El punto exacto de
-la API se confirma contra credenciales reales en la tarea correspondiente.
+Resuelto contra la documentación de Atlassian, y con consecuencias concretas:
+
+- El endpoint clásico `/rest/api/3/search` **ya no existe**: fue retirado y responde
+  `410 Gone`. El vigente es `/rest/api/3/search/jql`.
+- La paginación usa `nextPageToken` e `isLast`. Desaparecen `startAt` y `total`, así que no
+  se puede saber de antemano cuántas páginas hay ni informar de un total.
+- La primera llamada **no** debe enviar `nextPageToken`; enviarlo produce `400`.
+- El endpoint devuelve un conjunto mínimo de campos si no se piden explícitamente, así que
+  `fields` es obligatorio en la práctica: sin él el análisis se queda sin señales.
+
+Hay casos documentados en los que `isLast` nunca llega a `true` y los tokens se encadenan
+indefinidamente, dejando integraciones en bucle infinito. Por eso `iter_issues(jql)` no
+confía solo en `isLast` y corta por cuatro vías: `isLast`, ausencia de token, página vacía, y
+las dos defensas propias, token ya visto y tope duro de páginas.
+
+El servicio consume issues sin saber cómo se paginan. Si Atlassian vuelve a cambiar el
+mecanismo, cambia solo este método.
 
 ### 6.3 Normalización
 
@@ -436,8 +448,10 @@ Registrado de forma explícita para que nadie lo descubra por sorpresa:
    MVP; la frontera está aislada.
 2. El esquema se aplica a mano en Supabase. Sin migraciones versionadas, el script
    idempotente es la única red de seguridad.
-3. La forma exacta de la paginación por JQL en Jira Cloud se confirma contra credenciales
-   reales; el iterador aísla la incógnita.
+3. ~~La forma exacta de la paginación por JQL en Jira Cloud se confirma contra credenciales
+   reales.~~ **Resuelto**: ver 6.2. El endpoint clásico está retirado y la paginación es por
+   `nextPageToken`. Queda por confirmar contra credenciales reales únicamente el
+   comportamiento observado de `isLast`, para el que ya existen dos defensas.
 4. El coste/hora por proyecto se introduce a mano. Sin él, el impacto económico es cero y
    las alertas pierden su argumento más fuerte.
 5. Los pesos del riesgo son una primera aproximación. Sirven para demostrar el mecanismo, no
