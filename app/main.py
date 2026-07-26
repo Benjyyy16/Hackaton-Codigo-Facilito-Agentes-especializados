@@ -20,9 +20,13 @@ from app.api.routes import auth, health, providers as provider_routes
 from app.core.config import APP_VERSION, Settings, get_settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import configure_logging, get_logger, set_request_id
+from app.providers.github import GitHubProvider
 from app.providers.jira import JiraProvider
+from app.providers.notion import NotionProvider
 from app.providers.registry import ProviderRegistry
+from app.providers.slack import SlackProvider
 from app.providers.supabase import SupabaseStorageProvider
+from app.providers.vercel import VercelProvider
 
 logger = get_logger("app")
 
@@ -44,6 +48,18 @@ def build_provider_registry(settings: Settings) -> ProviderRegistry:
 
     if settings.JIRA_BASE_URL and settings.JIRA_EMAIL:
         registry.register(JiraProvider(settings))
+
+    if settings.GITHUB_TOKEN:
+        registry.register(GitHubProvider(settings))
+
+    if settings.NOTION_TOKEN:
+        registry.register(NotionProvider(settings))
+
+    if settings.SLACK_BOT_TOKEN:
+        registry.register(SlackProvider(settings))
+
+    if settings.VERCEL_TOKEN:
+        registry.register(VercelProvider(settings))
 
     return registry
 

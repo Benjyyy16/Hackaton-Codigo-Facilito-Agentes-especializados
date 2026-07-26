@@ -33,6 +33,8 @@ class ProviderName(StrEnum):
     NOTION = "notion"
     AWS = "aws"
     RIGHTWAY = "rightway"
+    SLACK = "slack"
+    VERCEL = "vercel"
 
 
 class EventKind(StrEnum):

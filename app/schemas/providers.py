@@ -17,23 +17,19 @@ from app.schemas.events import ProviderName
 class ProviderKind(StrEnum):
     """Papel del provider en la arquitectura."""
 
-    #: Aporta eventos: Jira, GitHub, Notion, AWS, Rightway.
     EVENT_SOURCE = "event_source"
-    #: Persiste: Supabase.
     STORAGE = "storage"
+    NOTIFICATION = "notification"
 
 
 class ProviderCapability(StrEnum):
-    """Lo que un provider sabe hacer.
+    """Lo que un provider sabe hacer."""
 
-    Se declara en lugar de descubrirse al fallar. Un provider puede saber sincronizar pero no
-    recibir webhooks, y la lógica que lo use debe poder preguntarlo antes de intentarlo.
-    """
-
-    #: Sabe recorrer el estado actual mediante una consulta.
     SYNC = "sync"
-    #: Sabe recibir y validar webhooks.
     WEBHOOK = "webhook"
+    NOTIFY = "notify"
+    LOGS = "logs"
+    EVENTS = "events"
 
 
 class ProviderHealth(BaseModel):
@@ -72,18 +68,17 @@ class SyncRequest(BaseModel):
 
 
 class SyncReport(BaseModel):
-    """Resultado de una sincronización (RF-4.5)."""
+    """Resultado de una sincronización."""
 
     provider: ProviderName = Field(description="Provider sincronizado.")
     workspace_key: str = Field(description="Contenedor sincronizado.")
-    query: str = Field(description="Consulta efectivamente ejecutada.")
-    processed: int = Field(default=0, description="Elementos recuperados del origen.")
-    created: int = Field(default=0, description="Eventos nuevos persistidos.")
-    skipped: int = Field(default=0, description="Eventos omitidos por duplicados.")
-    failed: int = Field(default=0, description="Elementos que no se pudieron procesar.")
-    truncated: bool = Field(
-        default=False, description="La recogida se detuvo por un límite."
-    )
+    query: str | None = Field(default=None, description="Consulta efectivamente ejecutada.")
+    processed: int = Field(default=0)
+    created: int = Field(default=0)
+    skipped: int = Field(default=0)
+    failed: int = Field(default=0)
+    truncated: bool = Field(default=False)
+    message: str | None = Field(default=None)
 
 
 class ProviderInfo(BaseModel):

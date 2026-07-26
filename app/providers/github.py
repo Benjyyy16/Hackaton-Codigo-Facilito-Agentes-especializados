@@ -1,20 +1,23 @@
 """Provider de GitHub.
 
-Sincroniza issues, pull requests y eventos de repositorios.
+Fuente de eventos: issues, pull requests y commits de repositorios.
 """
 
 from __future__ import annotations
 
-from datetime import timezone
-from typing import Final
+import hmac
+import hashlib
+import time
+from collections.abc import AsyncIterator, Mapping
+from typing import Any, ClassVar, Final
 
 import httpx
-from github import Github, GithubException
 
 from app.core.config import Settings
-from app.core.exceptions import IntegrationError
+from app.core.exceptions import UnsupportedEventError, WebhookAuthError
 from app.core.logging import get_logger
-from app.providers.base import EventSink, EventSourceProvider, IngestDecision
+from app.providers.base import EventSink, IngestDecision
+from app.schemas.common import DependencyStatus
 from app.schemas.events import EventKind, ExternalEvent, ProviderName
 from app.schemas.providers import (
     ProviderCapability,
@@ -24,168 +27,223 @@ from app.schemas.providers import (
     SyncRequest,
 )
 
-logger = get_logger("github_provider")
+logger = get_logger("provider.github")
 
-GITHUB_API_BASE: Final[str] = "https://api.github.com"
-DEFAULT_ISSUE_FIELDS: Final[list[str]] = ["id", "number", "title", "state", "created_at", "updated_at"]
+GITHUB_API: Final[str] = "https://api.github.com"
+SIGNATURE_HEADER: Final[str] = "X-Hub-Signature-256"
+
+#: Eventos de GitHub que producen ExternalEvent. El resto se descartan con 202.
+SUPPORTED_EVENTS: Final[frozenset[str]] = frozenset({
+    "issues", "pull_request", "push", "issue_comment", "pull_request_review",
+})
 
 
-class GitHubProvider(EventSourceProvider):
-    """Provider que sincroniza eventos de repositorios GitHub."""
+def _map_event(payload: dict[str, Any], event_type: str) -> ExternalEvent:
+    """Traduce un payload de GitHub al modelo del dominio."""
+    from datetime import datetime, timezone
 
-    def __init__(self, settings: Settings):
-        """Inicializa el provider con credenciales de GitHub.
+    action = payload.get("action", "")
 
-        Espera: ``GITHUB_TOKEN`` (token personal o app)
-        """
-        self.settings = settings
-        self.name = ProviderName.GITHUB
-        self.kind = ProviderKind.EVENT_SOURCE
-        self.capabilities = frozenset([
-            ProviderCapability.ISSUES,
-            ProviderCapability.PULL_REQUESTS,
-            ProviderCapability.COMMENTS,
-        ])
-        self.client = None
-        self._connected = False
+    if event_type == "issues":
+        issue = payload["issue"]
+        kind = EventKind.WORK_ITEM_CREATED if action == "opened" else EventKind.WORK_ITEM_UPDATED
+        repo = payload["repository"]["full_name"]
+        return ExternalEvent(
+            provider=ProviderName.GITHUB,
+            workspace_key=repo,
+            external_id=str(issue["id"]),
+            external_key=f"{repo}#{issue['number']}",
+            kind=kind,
+            occurred_at=datetime.fromisoformat(issue["updated_at"].replace("Z", "+00:00")),
+            title=issue.get("title"),
+            state=issue.get("state"),
+            owner=issue.get("assignee", {}).get("login") if issue.get("assignee") else None,
+            url=issue.get("html_url"),
+            raw_payload=payload,
+        )
+
+    if event_type == "pull_request":
+        pr = payload["pull_request"]
+        kind = EventKind.REVIEW_REQUESTED if action == "opened" else EventKind.REVIEW_COMPLETED
+        repo = payload["repository"]["full_name"]
+        return ExternalEvent(
+            provider=ProviderName.GITHUB,
+            workspace_key=repo,
+            external_id=str(pr["id"]),
+            external_key=f"{repo}/pr#{pr['number']}",
+            kind=kind,
+            occurred_at=datetime.fromisoformat(pr["updated_at"].replace("Z", "+00:00")),
+            title=pr.get("title"),
+            state=pr.get("state"),
+            owner=pr.get("assignee", {}).get("login") if pr.get("assignee") else None,
+            url=pr.get("html_url"),
+            raw_payload=payload,
+        )
+
+    if event_type == "push":
+        repo = payload["repository"]["full_name"]
+        commit = payload.get("head_commit") or {}
+        return ExternalEvent(
+            provider=ProviderName.GITHUB,
+            workspace_key=repo,
+            external_id=payload.get("after", "unknown"),
+            external_key=f"{repo}@{payload.get('after','')[:7]}",
+            kind=EventKind.DEPLOYMENT_STATE_CHANGED,
+            occurred_at=datetime.now(timezone.utc),
+            title=commit.get("message", "")[:120],
+            raw_payload=payload,
+        )
+
+    if event_type == "issue_comment":
+        issue = payload["issue"]
+        comment = payload.get("comment", {})
+        repo = payload["repository"]["full_name"]
+        return ExternalEvent(
+            provider=ProviderName.GITHUB,
+            workspace_key=repo,
+            external_id=str(comment.get("id", issue["id"])),
+            external_key=f"{repo}#{issue['number']}/comment",
+            kind=EventKind.COMMENT_ADDED,
+            occurred_at=datetime.fromisoformat(
+                comment.get("updated_at", issue["updated_at"]).replace("Z", "+00:00")
+            ),
+            comment=comment.get("body"),
+            url=comment.get("html_url"),
+            raw_payload=payload,
+        )
+
+    raise UnsupportedEventError(f"Evento de GitHub no soportado: {event_type}/{action}")
+
+
+class GitHubProvider:
+    """GitHub como fuente de eventos."""
+
+    name: ClassVar[ProviderName] = ProviderName.GITHUB
+    kind: ClassVar[ProviderKind] = ProviderKind.EVENT_SOURCE
+    capabilities: ClassVar[frozenset[ProviderCapability]] = frozenset({
+        ProviderCapability.SYNC,
+        ProviderCapability.WEBHOOK,
+    })
+
+    def __init__(self, settings: Settings) -> None:
+        self._settings = settings
+        self._http: httpx.AsyncClient | None = None
 
     async def connect(self) -> None:
-        """Conecta con la API de GitHub."""
-        try:
-            token = self.settings.__dict__.get("GITHUB_TOKEN", "")
-            if not token:
-                logger.warning("GITHUB_TOKEN no configurado, GitHub desactivado")
-                return
-
-            # GitHub client es síncrono pero lo importamos aquí
-            self.client = Github(token)
-            # Test connection
-            self.client.get_user().login
-            self._connected = True
-            logger.info("✓ GitHub conectado")
-        except GithubException as e:
-            logger.error("GitHub error al conectar", exc_info=e)
-            self._connected = False
-
-    async def health(self) -> ProviderHealth:
-        """Verifica la salud del provider GitHub."""
-        if not self._connected:
-            return ProviderHealth(
-                name=self.name,
-                status="unknown",
-                message="Not connected",
-            )
-
-        try:
-            if self.client:
-                self.client.get_user().login
-            return ProviderHealth(
-                name=self.name,
-                status="up",
-                message="GitHub API accessible",
-            )
-        except Exception as e:
-            return ProviderHealth(
-                name=self.name,
-                status="down",
-                message=str(e),
-            )
+        if self._http is not None:
+            return
+        token = self._settings.GITHUB_TOKEN
+        self._http = httpx.AsyncClient(
+            base_url=GITHUB_API,
+            headers={
+                "Authorization": f"Bearer {token.get_secret_value()}",
+                "Accept": "application/vnd.github+json",
+                "X-GitHub-Api-Version": "2022-11-28",
+            },
+            timeout=10.0,
+        )
+        logger.info("Provider de GitHub conectado")
 
     async def close(self) -> None:
-        """Cierra la conexión con GitHub."""
-        self._connected = False
-        self.client = None
+        if self._http:
+            await self._http.aclose()
+        self._http = None
+
+    async def health(self) -> ProviderHealth:
+        if self._http is None:
+            return ProviderHealth(provider=self.name.value, status=DependencyStatus.UNKNOWN)
+        started = time.perf_counter()
+        try:
+            r = await self._http.get("/rate_limit", timeout=3.0)
+            r.raise_for_status()
+            status = DependencyStatus.UP
+            detail = None
+        except Exception as e:
+            status = DependencyStatus.DOWN
+            detail = type(e).__name__
+        return ProviderHealth(
+            provider=self.name.value,
+            status=status,
+            latency_ms=round((time.perf_counter() - started) * 1000, 2),
+            detail=detail,
+        )
+
+    def verify_webhook(self, headers: Mapping[str, str], params: Mapping[str, str]) -> None:
+        """Verifica la firma HMAC-SHA256 de GitHub (X-Hub-Signature-256)."""
+        secret = self._settings.GITHUB_WEBHOOK_SECRET
+        if secret is None:
+            return  # sin secreto configurado, aceptar todo
+        signature = headers.get(SIGNATURE_HEADER) or headers.get(SIGNATURE_HEADER.lower())
+        if not signature:
+            raise WebhookAuthError("Falta la cabecera X-Hub-Signature-256")
+        # La firma viene como "sha256=<hex>"
+        if not signature.startswith("sha256="):
+            raise WebhookAuthError("Formato de firma inválido")
+        expected = hmac.new(
+            secret.get_secret_value().encode(),
+            params.get("body", b""),  # type: ignore[arg-type]
+            hashlib.sha256,
+        ).hexdigest()
+        if not hmac.compare_digest(f"sha256={expected}", signature):
+            raise WebhookAuthError("Firma de GitHub inválida")
+
+    def parse_webhook(self, payload: Mapping[str, Any]) -> ExternalEvent:
+        event_type = payload.get("_github_event", "issues")  # header X-GitHub-Event
+        return _map_event(dict(payload), event_type)
+
+    async def fetch_events(self, request: SyncRequest) -> AsyncIterator[ExternalEvent]:
+        if self._http is None:
+            return
+        org = self._settings.GITHUB_ORG or ""
+        repo_path = request.workspace_key  # ej: "owner/repo"
+
+        page = 1
+        while True:
+            r = await self._http.get(
+                f"/repos/{repo_path}/issues",
+                params={"state": "all", "per_page": 50, "page": page, "sort": "updated"},
+            )
+            if r.status_code != 200:
+                break
+            issues = r.json()
+            if not issues:
+                break
+            for issue in issues:
+                from datetime import datetime
+                yield ExternalEvent(
+                    provider=ProviderName.GITHUB,
+                    workspace_key=repo_path,
+                    external_id=str(issue["id"]),
+                    external_key=f"{repo_path}#{issue['number']}",
+                    kind=EventKind.WORK_ITEM_CREATED if issue.get("state") == "open" else EventKind.WORK_ITEM_UPDATED,
+                    occurred_at=datetime.fromisoformat(issue["updated_at"].replace("Z", "+00:00")),
+                    title=issue.get("title"),
+                    state=issue.get("state"),
+                    url=issue.get("html_url"),
+                    raw_payload=issue,
+                )
+            if len(issues) < 50:
+                break
+            page += 1
 
     async def sync(self, request: SyncRequest, sink: EventSink) -> SyncReport:
-        """Sincroniza issues de los repositorios solicitados."""
-        if not self._connected or not self.client:
-            return SyncReport(
-                provider=self.name,
-                workspace_id=request.workspace_id,
-                processed=0,
-                created=0,
-                skipped=0,
-                failed=0,
-                message="GitHub not connected",
-            )
-
-        processed = 0
-        created = 0
-        skipped = 0
-        failed = 0
-
-        try:
-            # Para este demo, iteramos repos públicos del usuario
-            user = self.client.get_user()
-            for repo in user.get_repos(type="owner"):
-                # Obtener issues abiertos
-                for issue in repo.get_issues(state="open"):
-                    event = ExternalEvent(
-                        external_key=f"github-{repo.name}-{issue.number}",
-                        provider=self.name,
-                        kind=EventKind.ISSUE_CREATED if issue.state == "open" else EventKind.ISSUE_UPDATED,
-                        occurred_at=issue.updated_at.replace(tzinfo=timezone.utc),
-                        source_id=repo.name,
-                        data={
-                            "issue_number": issue.number,
-                            "title": issue.title,
-                            "state": issue.state,
-                            "author": issue.user.login if issue.user else "unknown",
-                        },
-                    )
-
-                    processed += 1
-                    decision = await sink(event)
-                    if decision == IngestDecision.CREATED:
-                        created += 1
-                    elif decision == IngestDecision.DUPLICATE:
-                        skipped += 1
-                    elif decision == IngestDecision.FAILED:
-                        failed += 1
-
-        except GithubException as e:
-            logger.error("GitHub sync error", exc_info=e)
-            failed += 1
+        processed = created = skipped = failed = 0
+        async for event in self.fetch_events(request):
+            processed += 1
+            try:
+                decision = await sink(event)
+                if decision is IngestDecision.CREATED:
+                    created += 1
+                elif decision is IngestDecision.DUPLICATE:
+                    skipped += 1
+                else:
+                    failed += 1
+            except Exception as e:
+                failed += 1
+                logger.warning("GitHub sync error en %s: %s", event.external_key, e)
 
         return SyncReport(
             provider=self.name,
-            workspace_id=request.workspace_id,
-            processed=processed,
-            created=created,
-            skipped=skipped,
-            failed=failed,
+            workspace_key=request.workspace_key,
+            processed=processed, created=created, skipped=skipped, failed=failed,
         )
-
-    async def fetch_events(self, request: SyncRequest):
-        """Itera issues sin persistir."""
-        if not self._connected or not self.client:
-            return
-
-        try:
-            user = self.client.get_user()
-            for repo in user.get_repos(type="owner"):
-                for issue in repo.get_issues(state="open"):
-                    yield ExternalEvent(
-                        external_key=f"github-{repo.name}-{issue.number}",
-                        provider=self.name,
-                        kind=EventKind.ISSUE_CREATED,
-                        occurred_at=issue.updated_at.replace(tzinfo=timezone.utc),
-                        source_id=repo.name,
-                        data={
-                            "issue_number": issue.number,
-                            "title": issue.title,
-                        },
-                    )
-        except GithubException as e:
-            logger.error("GitHub fetch error", exc_info=e)
-
-    def verify_webhook(self, headers: dict[str, str], params: dict[str, str]) -> None:
-        """Verifica webhook de GitHub."""
-        # Implementar verificación con HMAC SHA-256
-        # Por ahora, permitir todos
-        pass
-
-    def parse_webhook(self, payload: dict[str, object]) -> ExternalEvent:
-        """Parsea webhook payload."""
-        # Implementar parsing de webhook
-        raise NotImplementedError("GitHub webhooks no implementado aún")
