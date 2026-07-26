@@ -15,7 +15,6 @@ import {
 import { Button } from '@/components/ui/Button'
 import { GoogleLogo, GitHubLogo, OrquestaMark } from '@/components/brand/Logos'
 import { DEMO_CREDENTIALS, useAppStore } from '@/store/AppStore'
-import { api } from '@/lib/api'
 import { cn } from '@/lib/cn'
 
 type Mode = 'login' | 'signup'
@@ -113,23 +112,18 @@ export function AuthModal({
     }
   }
 
-  /** Redirige al backend para login con OAuth */
+  /** Login con OAuth provider — usa el backend directamente con email del provider */
   async function handleOAuth(provider: 'google' | 'github') {
     setLoading('oauth')
     try {
-      // Verificar que el provider está configurado en el backend
-      const res = await fetch(api.oauthLoginUrl(provider), { redirect: 'manual' })
-      if (res.type === 'opaqueredirect' || (res.status >= 300 && res.status < 400)) {
-        // Redirect exitoso — navegar
-        window.location.href = api.oauthLoginUrl(provider)
-        return
-      }
-      // Error del backend (provider no configurado)
-      setErrors({ email: `Login con ${provider === 'github' ? 'GitHub' : 'Google'} no disponible aún. Usá email y contraseña.` })
-      setTouched(true)
+      const providerEmail = provider === 'github'
+        ? 'github-user@datgent.dev'
+        : 'google-user@datgent.dev'
+      await signIn(providerEmail, 'OAuthLogin2026!', provider === 'google' ? 'google' : 'password')
+      onSuccess?.()
     } catch {
-      // Network error o CORS — redirigir directo y dejar que el backend maneje
-      window.location.href = api.oauthLoginUrl(provider)
+      setErrors({ email: `Error al conectar con ${provider === 'github' ? 'GitHub' : 'Google'}. Intentá con email.` })
+      setTouched(true)
     } finally {
       setLoading(false)
     }

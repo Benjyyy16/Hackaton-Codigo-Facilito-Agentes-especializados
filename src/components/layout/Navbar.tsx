@@ -65,7 +65,7 @@ export function Navbar({
                 <OrquestaMark className="h-[34px] w-[34px]" />
               </motion.span>
               <span className="text-[16.5px] font-extrabold tracking-tight text-ink-900">
-                Orquesta
+                Datgent
                 <span className="text-violet-600">.</span>
               </span>
             </Link>

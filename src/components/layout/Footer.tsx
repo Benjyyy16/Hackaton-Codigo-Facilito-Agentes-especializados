@@ -15,7 +15,7 @@ export function Footer() {
             <div className="flex items-center gap-2.5">
               <OrquestaMark className="h-9 w-9" />
               <span className="text-[17px] font-extrabold tracking-tight text-ink-900">
-                Orquesta<span className="text-violet-600">.</span>
+                Datgent<span className="text-violet-600">.</span>
               </span>
             </div>
             <p className="mt-4 max-w-sm text-[13.5px] leading-relaxed text-ink-600">

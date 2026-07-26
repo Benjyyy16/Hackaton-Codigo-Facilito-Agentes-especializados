@@ -25,7 +25,7 @@ export function AppShell({
           <Link to="/" className="flex items-center gap-2.5">
             <OrquestaMark className="h-8 w-8" />
             <span className="text-[16px] font-extrabold tracking-tight text-ink-900">
-              Orquesta<span className="text-violet-600">.</span>
+              Datgent<span className="text-violet-600">.</span>
             </span>
           </Link>
         </div>
