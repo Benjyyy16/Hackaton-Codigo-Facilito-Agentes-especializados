@@ -6,23 +6,24 @@ Sistema de agentes especializados para detección de riesgos en compromisos de p
 Cada agente es una función pura (sin I/O, sin red, sin DB) que recibe contexto y devuelve hallazgos.
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                  OrchestratorAgent                    │
-│  Ejecuta todos los agentes, tolera fallos parciales  │
-├─────────────────────────────────────────────────────┤
+┌──────────────────────────────────────────────────────┐
+│                 [ DATGENT CEREBRO ]                  │
+│         (Núcleo de Inteligencia Multiagente)         │
+│   Coordina los agentes, tolera fallos parciales      │
+├──────────────────────────────────────────────────────┤
 │                                                      │
-│  ┌──────────────┐  ┌──────────────┐  ┌───────────┐ │
-│  │ Commitment   │  │  Technical   │  │ Financial │ │
-│  │    Agent     │  │    Agent     │  │   Agent   │ │
-│  └──────┬───────┘  └──────┬───────┘  └─────┬─────┘ │
-│         │                  │                │       │
-│         └──────────────────┼────────────────┘       │
-│                            ▼                        │
-│                    ┌──────────────┐                  │
-│                    │  RiskAgent   │                  │
-│                    │ (compositor) │                  │
-│                    └──────────────┘                  │
-└─────────────────────────────────────────────────────┘
+│  ┌──────────────┐  ┌──────────────┐  ┌───────────┐   │
+│  │ Commitment   │  │  Technical   │  │ Financial │   │
+│  │    Agent     │  │    Agent     │  │   Agent   │   │
+│  └──────┬───────┘  └──────┬───────┘  └─────┬─────┘   │
+│         │                 │                │         │
+│         └─────────────────┼────────────────┘         │
+│                           ▼                          │
+│                   ┌──────────────┐                   │
+│                   │  RiskAgent   │                   │
+│                   │ (compositor) │                   │
+│                   └──────────────┘                   │
+└──────────────────────────────────────────────────────┘
 ```
 
 ## Agentes
@@ -75,8 +76,11 @@ Cada agente es una función pura (sin I/O, sin red, sin DB) que recibe contexto 
 | 60-79 | high      |
 | 80-100| critical  |
 
-### 5. OrchestratorAgent
-**Propósito:** Ejecuta el pipeline completo con tolerancia a fallos.
+### 5. Datgent Cerebro — Núcleo de Inteligencia Multiagente
+**Propósito:** Coordina el pipeline completo con tolerancia a fallos.
+
+> Implementado por la clase `RiskOrchestrator` (`app/agents/risk_orchestrator.py`).
+> El nombre de clase se mantiene: es el símbolo que aparece en el código y en los tests.
 
 **Skills:**
 - `parallel_execution` — Ejecuta agentes de forma independiente

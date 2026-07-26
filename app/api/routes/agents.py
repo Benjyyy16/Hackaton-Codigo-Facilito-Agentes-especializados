@@ -69,7 +69,7 @@ async def list_agents() -> list[AgentInfo]:
         ),
         AgentInfo(
             name="orchestrator",
-            description="Orquesta todos los agentes y tolera fallos parciales",
+            description="Datgent Cerebro — núcleo de inteligencia multiagente: coordina los agentes y tolera fallos parciales",
             capabilities=["ejecucion_paralela", "tolerancia_fallos", "composicion"],
         ),
     ]
