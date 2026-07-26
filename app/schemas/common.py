@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from enum import StrEnum
 from typing import Annotated, Generic, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from app.core.enums import StrEnum
 
 ItemT = TypeVar("ItemT")
 

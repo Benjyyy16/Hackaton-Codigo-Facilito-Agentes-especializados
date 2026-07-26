@@ -7,11 +7,12 @@ servicios y la API. Los agentes dependen de estos tipos; los tipos no dependen d
 from __future__ import annotations
 
 from datetime import datetime
-from enum import StrEnum
 from typing import Annotated, Any, Final
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from app.core.enums import StrEnum
 
 #: Tramos de severidad. El umbral de alerta es configurable y es independiente de estos
 #: tramos: la severidad describe la gravedad, el umbral decide si se avisa.

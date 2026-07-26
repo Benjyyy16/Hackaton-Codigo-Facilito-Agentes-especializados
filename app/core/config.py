@@ -10,12 +10,13 @@ defecto silencioso (RF-1.2).
 
 from __future__ import annotations
 
-from enum import StrEnum
 from functools import lru_cache
 from typing import Final
 
 from pydantic import Field, SecretStr, ValidationError, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from app.core.enums import StrEnum
 
 APP_NAME: Final[str] = "commitment-twin-backend"
 APP_VERSION: Final[str] = "0.1.0"

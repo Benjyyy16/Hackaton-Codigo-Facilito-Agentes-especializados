@@ -8,10 +8,11 @@ from __future__ import annotations
 
 import hashlib
 from datetime import UTC, datetime
-from enum import StrEnum
 from typing import Any, Final
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from app.core.enums import StrEnum
 
 #: Tipos de evento del webhook de Jira que este backend acepta (RF-5.3).
 JIRA_WEBHOOK_ISSUE_CREATED: Final[str] = "jira:issue_created"

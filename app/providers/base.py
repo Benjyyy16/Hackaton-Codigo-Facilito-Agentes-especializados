@@ -18,8 +18,9 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from dataclasses import dataclass
-from enum import StrEnum
 from typing import Protocol, runtime_checkable
+
+from app.core.enums import StrEnum
 
 from app.repositories.alerts import AlertRepository
 from app.repositories.commitments import CommitmentRepository

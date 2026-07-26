@@ -6,9 +6,9 @@ con los que la lógica de negocio habla con cualquier integración.
 
 from __future__ import annotations
 
-from enum import StrEnum
-
 from pydantic import BaseModel, ConfigDict, Field
+
+from app.core.enums import StrEnum
 
 from app.schemas.common import DependencyStatus
 from app.schemas.events import ProviderName

@@ -13,10 +13,11 @@ from __future__ import annotations
 
 import hashlib
 from datetime import UTC, datetime
-from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from app.core.enums import StrEnum
 
 
 class ProviderName(StrEnum):
