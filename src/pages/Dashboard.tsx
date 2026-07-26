@@ -376,9 +376,12 @@ function AgentsPanel() {
       signals: ['weighted_score — Score ponderado 0-100', 'severity — low (<40) / medium (40-59) / high (60-79) / critical (80+)', 'dominant_signal — Señal de mayor peso'],
     },
     {
-      name: 'orchestrator', label: 'Orchestrator', icon: '🤖',
-      desc: 'Ejecuta pipeline completo',
-      howItWorks: 'Ejecuta CommitmentAgent, TechnicalAgent y FinancialAgent en secuencia. Si uno falla, continúa con los demás y marca el análisis como parcial (is_partial=true). Luego invoca al RiskAgent para componer el resultado final.',
+      // `name` es la clave que empareja con el nombre del agente en el backend
+      // (`result.outcomes.find(o => o.agent === agent.name)`). Solo cambia `label`,
+      // que es lo que ve el usuario.
+      name: 'orchestrator', label: 'Datgent Cerebro', icon: '🤖',
+      desc: 'Núcleo de Inteligencia Multiagente',
+      howItWorks: 'Coordina a los agentes especializados en secuencia. Si uno falla, continúa con los demás y marca el análisis como parcial (is_partial=true). Después compone el riesgo consolidado a partir de todas las salidas.',
       signals: ['parallel_execution — Cada agente es independiente', 'fault_tolerance — Fallos aislados', 'result_composition — Agrega en AnalysisResult'],
     },
   ]
@@ -552,7 +555,7 @@ function AgentsPanel() {
             {result.outcomes.map((outcome) => (
               <div key={outcome.agent} className="rounded-lg border border-ink-200 p-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-[12px] font-bold text-ink-900 capitalize">{outcome.agent}</span>
+                  <span className="text-[12px] font-bold text-ink-900">{agentDisplayName(outcome.agent)}</span>
                   <span className="font-mono text-[11px] font-bold text-violet-700">{outcome.score}/100</span>
                 </div>
                 {outcome.signals.length > 0 && (
@@ -586,9 +589,35 @@ interface ChatMessage {
   agent?: string
 }
 
+/**
+ * Nombres de presentación de los agentes.
+ *
+ * Las claves son los identificadores que devuelve el backend y no se tocan: son lo que
+ * empareja una respuesta con su agente. Este mapa existe para que renombrar la marca no
+ * obligue a cambiar el contrato de la API.
+ */
+const AGENT_DISPLAY_NAMES: Record<string, string> = {
+  orchestrator: 'Datgent Cerebro',
+  'orchestrator-agent': 'Datgent Cerebro',
+  'jira-agent': 'Agente Jira',
+  'code-agent': 'Agente Código',
+  'finance-agent': 'Agente Finanzas',
+  'database-agent': 'Agente Datos',
+}
+
+function agentDisplayName(agent?: string): string {
+  if (!agent) return 'Datgent Cerebro'
+  return AGENT_DISPLAY_NAMES[agent] ?? agent
+}
+
 function AgentChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: 'agent', content: 'Hola! Soy el Orchestrator de Datgent. Preguntame sobre riesgos, compromisos o impacto financiero de tus proyectos.', agent: 'orchestrator' },
+    {
+      role: 'agent',
+      content:
+        '¡Hola, soy Datgent Cerebro! Coordino los agentes especializados de Datgent para detectar riesgos, compromisos en peligro e impacto financiero antes de que afecten tus proyectos.',
+      agent: 'orchestrator',
+    },
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -633,7 +662,10 @@ function AgentChat() {
     <div className="mt-8 rounded-xl border-2 border-ink-900 bg-paper shadow-hard overflow-hidden">
       <div className="flex items-center gap-2 border-b-2 border-ink-200 bg-violet-50 px-4 py-3">
         <Bot className="h-4 w-4 text-violet-600" />
-        <span className="text-[13px] font-bold text-ink-900">Chat con Agentes</span>
+        <span className="text-[13px] font-bold text-ink-900">Datgent Cerebro</span>
+        <span className="font-mono text-[9.5px] uppercase tracking-wider text-ink-400">
+          núcleo multiagente
+        </span>
         <span className="ml-auto rounded-full bg-mint-100 px-2 py-0.5 font-mono text-[9px] font-bold text-mint-700 border border-mint-300">
           en vivo
         </span>
@@ -651,7 +683,7 @@ function AgentChat() {
             )}>
               {msg.role === 'agent' && (
                 <span className="mb-1 block font-mono text-[9px] font-bold uppercase text-violet-600">
-                  🤖 {msg.agent}
+                  🤖 {agentDisplayName(msg.agent)}
                 </span>
               )}
               <span className="whitespace-pre-wrap">{msg.content}</span>
@@ -676,7 +708,7 @@ function AgentChat() {
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Describí un compromiso o preguntá sobre riesgos..."
+          placeholder="Describí un compromiso o pregúntame sobre riesgos…"
           className="flex-1 rounded-lg border-2 border-ink-200 bg-paper px-3 py-2 text-[13px] text-ink-900 placeholder:text-ink-400 focus:border-violet-600 focus:outline-none"
         />
         <button
