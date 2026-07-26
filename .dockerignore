@@ -3,7 +3,11 @@
 .venv
 __pycache__
 *.pyc
+*.pyo
 .pytest_cache
 .kiro
 .env.local
 .env.example
+.render-env.json
+node_modules
+*.md
