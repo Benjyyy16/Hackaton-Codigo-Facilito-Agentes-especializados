@@ -114,9 +114,8 @@ export function AuthModal({
 
   /** OAuth no disponible en backend — redirigir al formulario de login */
   function handleOAuth(_provider: 'google' | 'github') {
-    setMode('login')
-    setTouched(false)
-    setErrors({})
+    setErrors({ email: 'OAuth no disponible aún. Usá email y contraseña.' })
+    setTouched(true)
   }
 
   async function handleDemo() {
