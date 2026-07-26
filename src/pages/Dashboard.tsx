@@ -378,12 +378,15 @@ function AgentsPanel() {
     setResult(null)
     try {
       const tokens = getTokens()
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      }
+      if (tokens?.access_token) {
+        headers['Authorization'] = `Bearer ${tokens.access_token}`
+      }
       const res = await fetch('https://hackaton-codigo-facilito-agentes.onrender.com/agents/analyze', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(tokens ? { Authorization: `Bearer ${tokens.access_token}` } : {}),
-        },
+        headers,
         body: JSON.stringify({
           project_key: 'DATGENT',
           issue_key: 'DATGENT-42',
