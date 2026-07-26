@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Annotated
 
+import os
+
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -13,7 +15,10 @@ from app.core.config import Settings
 
 router = APIRouter(prefix="/agents", tags=["agents-chat"])
 
-OPENAI_API_KEY = "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"
+OPENAI_API_KEY = os.environ.get(
+    "OPENAI_API_KEY",
+    "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",
+)
 
 SYSTEM_PROMPT = """Eres Datgent, un sistema de multi-agentes especializados en detección de riesgos de proyectos de software. 
 
