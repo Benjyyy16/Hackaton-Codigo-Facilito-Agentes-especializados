@@ -133,7 +133,7 @@ export function AuthModal({
         await signUp({ name: providerName, email: providerEmail, password: 'OAuthLogin2026!' })
         onSuccess?.()
       } catch {
-        setErrors({ email: `Error al conectar con ${provider === 'github' ? 'GitHub' : 'Google'}. Intentá con email.` })
+        setErrors({ email: 'Servidor cargando. Esperá unos segundos e intentá de nuevo.' })
         setTouched(true)
       }
     } finally {
