@@ -18,6 +18,8 @@ from fastapi import Depends, HTTPException, Request, status
 
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from dataclasses import dataclass
+
 from app.agents.orchestrator import OrchestratorAgent
 from app.core.config import Settings
 from app.core.exceptions import SupabaseError
@@ -25,11 +27,27 @@ from app.core.logging import get_logger
 from app.providers.base import RepositoryBundle
 from app.providers.registry import ProviderRegistry
 from app.providers.supabase import SupabaseStorageProvider
+from app.repositories.domain import (
+    AgentRunRepository,
+    AlertRepository as DomainAlertRepository,
+    CommitmentRepository as DomainCommitmentRepository,
+    DecisionRepository,
+    DocumentRepository,
+    EvidenceRepository,
+    FindingRepository,
+    ProjectRepository,
+    RiskCaseRepository,
+    SourceEventRepository,
+    TimelineRepository,
+)
 from app.schemas.auth import CurrentUser
+from app.services.analysis_service import AnalysisService
 from app.services.auth_service import AuthService, AuthenticationError
+from app.services.decision_service import DecisionService
 from app.services.health_service import HealthService
 from app.services.ingest_service import IngestOutcome, IngestService
 from app.services.orchestrator_service import OrchestratorService
+from app.websocket.manager import ConnectionManager
 
 logger = get_logger("api.deps")
 
@@ -249,3 +267,99 @@ async def get_current_user_required(
 
 
 CurrentUserDep = Annotated[CurrentUser, Depends(get_current_user_required)]
+
+
+# --- Repositorios del dominio Datgent ------------------------------------------------
+
+
+@dataclass(frozen=True)
+class DomainRepositoryBundle:
+    """Repositorios del dominio Datgent, creados desde el cliente de Supabase."""
+
+    projects: ProjectRepository
+    commitments: DomainCommitmentRepository
+    source_events: SourceEventRepository
+    agent_runs: AgentRunRepository
+    findings: FindingRepository
+    evidence: EvidenceRepository
+    risk_cases: RiskCaseRepository
+    alerts: DomainAlertRepository
+    decisions: DecisionRepository
+    timeline: TimelineRepository
+    documents: DocumentRepository
+
+
+def get_domain_repositories(storage: StorageDep) -> DomainRepositoryBundle:
+    """Construye los repositorios del dominio a partir del cliente del almacén."""
+    client = storage.client
+    return DomainRepositoryBundle(
+        projects=ProjectRepository(client),
+        commitments=DomainCommitmentRepository(client),
+        source_events=SourceEventRepository(client),
+        agent_runs=AgentRunRepository(client),
+        findings=FindingRepository(client),
+        evidence=EvidenceRepository(client),
+        risk_cases=RiskCaseRepository(client),
+        alerts=DomainAlertRepository(client),
+        decisions=DecisionRepository(client),
+        timeline=TimelineRepository(client),
+        documents=DocumentRepository(client),
+    )
+
+
+DomainRepositoriesDep = Annotated[DomainRepositoryBundle, Depends(get_domain_repositories)]
+
+
+# --- Servicios del dominio Datgent ---------------------------------------------------
+
+
+def get_ws_manager(request: Request) -> ConnectionManager:
+    """Gestor de WebSocket, creado en create_app."""
+    manager = getattr(request.app.state, "ws_manager", None)
+    if manager is None:
+        manager = ConnectionManager()
+    return manager
+
+
+WsManagerDep = Annotated[ConnectionManager, Depends(get_ws_manager)]
+
+
+def get_analysis_service(
+    repos: DomainRepositoriesDep,
+    ws_manager: WsManagerDep,
+    settings: SettingsDep,
+) -> AnalysisService:
+    """Crea el servicio de análisis con todos sus repositorios."""
+    return AnalysisService(
+        projects=repos.projects,
+        commitments=repos.commitments,
+        source_events=repos.source_events,
+        agent_runs=repos.agent_runs,
+        findings=repos.findings,
+        evidence=repos.evidence,
+        risk_cases=repos.risk_cases,
+        alerts=repos.alerts,
+        decisions=repos.decisions,
+        timeline=repos.timeline,
+        documents=repos.documents,
+        ws_manager=ws_manager,
+        risk_alert_threshold=settings.RISK_ALERT_THRESHOLD,
+    )
+
+
+AnalysisServiceDep = Annotated[AnalysisService, Depends(get_analysis_service)]
+
+
+def get_decision_service(
+    repos: DomainRepositoriesDep,
+    ws_manager: WsManagerDep,
+) -> DecisionService:
+    """Crea el servicio de decisiones."""
+    return DecisionService(
+        decisions=repos.decisions,
+        timeline=repos.timeline,
+        ws_manager=ws_manager,
+    )
+
+
+DecisionServiceDep = Annotated[DecisionService, Depends(get_decision_service)]

@@ -1,364 +1,126 @@
-# Commitment Twin Backend - API Reference
+# Datgent API — Referencia de Endpoints
 
-## Autenticación
+Generado verificando `app.openapi()` de la aplicación real. No contiene endpoints inventados.
 
-### 1. Registrar nuevo usuario
+## Health
 
-**Endpoint:** `POST /auth/register`
+| Método | Ruta | Propósito | Códigos |
+|--------|------|-----------|---------|
+| GET | `/health` | Estado del servicio y de sus dependencias | 200 |
+| GET | `/ready` | Readiness probe | 200 |
 
-**Descripción:** Crea una nueva cuenta de usuario.
+## Auth
 
-**Request:**
-```json
-{
-  "email": "user@example.com",
-  "name": "John Doe",
-  "password": "SecurePassword123"
-}
-```
+| Método | Ruta | Propósito | Códigos |
+|--------|------|-----------|---------|
+| POST | `/auth/register` | Registrar nuevo usuario | 201, 422 |
+| POST | `/auth/login` | Login con email y contraseña | 200, 401, 422 |
+| POST | `/auth/logout` | Logout | 200 |
+| GET | `/auth/me` | Obtener usuario actual | 200, 401 |
+| GET | `/auth/oauth/{provider}/login` | Iniciar login con OAuth | 302 |
+| GET | `/auth/oauth/{provider}/callback` | Callback de OAuth login | 302 |
 
-**Response (201 Created):**
-```json
-{
-  "access_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
-  "refresh_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
-  "token_type": "bearer",
-  "expires_in": 3600
-}
-```
+## Commitments
 
-**Validaciones:**
-- Email debe ser válido (contener @)
-- Nombre no puede estar vacío
-- Contraseña debe tener al menos 8 caracteres
+| Método | Ruta | Propósito | Códigos |
+|--------|------|-----------|---------|
+| GET | `/commitments` | Listar compromisos | 200 |
+| POST | `/commitments` | Crear compromiso | 201, 422 |
+| GET | `/commitments/{commitment_id}` | Obtener compromiso | 200, 404 |
+| PATCH | `/commitments/{commitment_id}` | Actualizar compromiso | 200, 404, 422 |
+| POST | `/commitments/{commitment_id}/analyze` | Disparar análisis de riesgo | 202, 404 |
+| GET | `/commitments/{commitment_id}/findings` | Hallazgos del compromiso | 200, 404 |
+| GET | `/commitments/{commitment_id}/timeline` | Cronología del compromiso | 200, 404 |
 
-**Status codes:**
-- `201`: Usuario registrado exitosamente
-- `400`: Datos inválidos
-- `422`: Error de validación
+## Risk Cases
 
----
+| Método | Ruta | Propósito | Códigos |
+|--------|------|-----------|---------|
+| GET | `/risk-cases` | Listar casos de riesgo | 200 |
+| GET | `/risk-cases/{risk_case_id}` | Obtener caso de riesgo | 200, 404 |
+| POST | `/risk-cases/{risk_case_id}/reanalyze` | Reanalizar caso de riesgo | 202, 404 |
 
-### 2. Login
+## Alerts
 
-**Endpoint:** `POST /auth/login`
+| Método | Ruta | Propósito | Códigos |
+|--------|------|-----------|---------|
+| GET | `/alerts` | Listar alertas | 200 |
+| PATCH | `/alerts/{alert_id}/acknowledge` | Reconocer alerta | 200, 404 |
 
-**Descripción:** Autentica un usuario y devuelve tokens JWT.
+## Decisions
 
-**Request:**
-```json
-{
-  "email": "user@example.com",
-  "password": "SecurePassword123"
-}
-```
+| Método | Ruta | Propósito | Códigos |
+|--------|------|-----------|---------|
+| GET | `/decisions` | Listar decisiones | 200 |
+| POST | `/decisions/{decision_id}/approve` | Aprobar decisión | 200, 404, 409 |
+| POST | `/decisions/{decision_id}/reject` | Rechazar decisión | 200, 404, 409 |
+| POST | `/decisions/{decision_id}/execute` | Ejecutar decisión aprobada | 200, 404, 409 |
 
-**Response (200 OK):**
-```json
-{
-  "access_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
-  "refresh_token": "eyJ0eXAiOiJKV1QiLCJhbGc...",
-  "token_type": "bearer",
-  "expires_in": 3600
-}
-```
+## Agents
 
-**Validaciones:**
-- Email debe ser válido
-- Contraseña no puede estar vacía
+| Método | Ruta | Propósito | Códigos |
+|--------|------|-----------|---------|
+| GET | `/agents` | Listar agentes disponibles | 200 |
+| GET | `/agents/status` | Estado de los agentes registrados | 200 |
+| POST | `/agents/analyze` | Ejecutar análisis de riesgo | 202, 422 |
+| POST | `/agents/chat` | Chat con los agentes | 200, 422 |
+| GET | `/agent-runs/{agent_run_id}` | Obtener ejecución de agente | 200, 404 |
 
-**Status codes:**
-- `200`: Login exitoso
-- `401`: Email o contraseña inválidos
-- `422`: Error de validación
+## Documents
 
----
+| Método | Ruta | Propósito | Códigos |
+|--------|------|-----------|---------|
+| POST | `/documents` | Indexar documento | 201, 422 |
+| GET | `/documents/search` | Buscar documentos por texto | 200 |
+| GET | `/documents/{document_id}` | Obtener documento por ID | 200, 404 |
 
-### 3. Obtener usuario actual
+## Demo
 
-**Endpoint:** `GET /auth/me`
+Disponibles solo si `ENV != production` o `DEMO_MODE_ENABLED=true`. Devuelven 404 en producción sin la bandera (no revelar existencia).
 
-**Descripción:** Devuelve los datos del usuario autenticado.
+| Método | Ruta | Propósito | Códigos |
+|--------|------|-----------|---------|
+| POST | `/demo/seed` | Crear datos del caso demo | 201, 404 |
+| POST | `/demo/simulate` | Simular análisis del caso demo | 202, 404 |
+| DELETE | `/demo/reset` | Limpiar datos del caso demo | 200, 404 |
 
-**Headers requeridos:**
-```
-Authorization: Bearer <access_token>
-```
+## Providers & Integrations
 
-**Response (200 OK):**
-```json
-{
-  "id": "user_id_hash",
-  "email": "user@example.com",
-  "name": "John Doe",
-  "roles": []
-}
-```
+| Método | Ruta | Propósito | Códigos |
+|--------|------|-----------|---------|
+| GET | `/providers` | Providers registrados y su estado | 200 |
+| POST | `/providers/{provider}/sync` | Sincroniza contenedor via provider | 200, 404, 502 |
+| GET | `/integrations` | Listar integraciones del usuario | 200 |
+| POST | `/integrations/{provider}` | Vincular integración | 201, 422 |
+| DELETE | `/integrations/{provider}` | Desconectar integración | 200, 404 |
+| GET | `/integrations/{provider}/test` | Probar conexión | 200, 502 |
 
-**Status codes:**
-- `200`: Datos del usuario
-- `401`: Token inválido o expirado
+## OAuth
 
----
+| Método | Ruta | Propósito | Códigos |
+|--------|------|-----------|---------|
+| GET | `/oauth/{provider}/authorize` | Iniciar flujo OAuth | 302 |
+| GET | `/oauth/{provider}/callback` | Callback OAuth | 302 |
 
-### 4. Logout
+## Finance
 
-**Endpoint:** `POST /auth/logout`
-
-**Descripción:** Invalida la sesión actual.
-
-**Headers requeridos:**
-```
-Authorization: Bearer <access_token>
-```
-
-**Response (204 No Content):**
-(Sin body)
-
-**Status codes:**
-- `204`: Logout exitoso
-- `401`: Token inválido
-
----
-
-## Health Check
-
-**Endpoint:** `GET /health`
-
-**Descripción:** Verifica el estado del servicio y sus dependencias.
-
-**Response (200 OK):**
-```json
-{
-  "status": "healthy",
-  "service": "commitment-twin-backend",
-  "timestamp": "2026-07-26T12:00:00Z",
-  "dependencies": {
-    "supabase": {
-      "status": "up",
-      "latency_ms": 45
-    },
-    "jira": {
-      "status": "up",
-      "latency_ms": 120
-    }
-  }
-}
-```
-
-**Status codes:**
-- `200`: Servicio operacional
-- `503`: Servicio degradado o caído
-
----
-
-## Providers
-
-### 1. Listar providers disponibles
-
-**Endpoint:** `GET /providers`
-
-**Descripción:** Devuelve la lista de providers configurados.
-
-**Response (200 OK):**
-```json
-{
-  "providers": [
-    {
-      "name": "jira",
-      "kind": "event_source",
-      "status": "up",
-      "capabilities": ["issues", "comments"]
-    },
-    {
-      "name": "github",
-      "kind": "event_source",
-      "status": "unknown",
-      "capabilities": ["issues", "pull_requests"]
-    },
-    {
-      "name": "aws",
-      "kind": "event_source",
-      "status": "down",
-      "capabilities": ["logs", "events"]
-    }
-  ]
-}
-```
-
----
-
-### 2. Sincronizar eventos de un provider
-
-**Endpoint:** `POST /providers/{provider}/sync`
-
-**Descripción:** Realiza una sincronización manual de eventos.
-
-**Parámetros:**
-- `provider`: Nombre del provider (jira, github, aws, notion, rightway)
-
-**Request:**
-```json
-{
-  "workspace_id": "workspace-1",
-  "cursor": null
-}
-```
-
-**Response (200 OK):**
-```json
-{
-  "provider": "jira",
-  "workspace_id": "workspace-1",
-  "processed": 42,
-  "created": 15,
-  "skipped": 25,
-  "failed": 2,
-  "message": "Sincronización completada"
-}
-```
-
-**Status codes:**
-- `200`: Sincronización exitosa
-- `404`: Provider no encontrado
-- `503`: Provider no disponible
-
----
+| Método | Ruta | Propósito | Códigos |
+|--------|------|-----------|---------|
+| POST | `/finance/upload` | Subir Excel o CSV financiero | 200, 422 |
+| POST | `/finance/erp` | Conectar con ERP | 200, 422 |
 
 ## Webhooks
 
-### Recibir webhook de Jira
+| Método | Ruta | Propósito | Códigos |
+|--------|------|-----------|---------|
+| POST | `/webhooks/{provider}` | Recibe evento de un provider externo | 200, 202, 401 |
 
-**Endpoint:** `POST /webhooks/jira`
+## WebSocket
 
-**Descripción:** Recibe eventos de webhooks de Jira.
+| Protocolo | Ruta | Propósito |
+|-----------|------|-----------|
+| WS | `/ws/events` | Canal de eventos en tiempo real (solo lectura) |
 
-**Headers requeridos:**
-```
-X-Hook-Secret: <webhook_secret>
-X-Atlassian-Webhook-Identifier: <webhook_id>
-```
+Mensajes de salida tipados: `event.created`, `analysis.completed`, `alert.created`, `alert.resolved`, `decision.updated`.
 
-**Response (202 Accepted):**
-```json
-{
-  "event_id": "evt_123456",
-  "project_id": "PROJ",
-  "message": "Evento procesado"
-}
-```
-
-**Status codes:**
-- `202`: Evento aceptado (se procesa en background)
-- `401`: Secreto inválido o ausente
-- `415`: Content-Type no soportado
-
----
-
-## Ejemplos de uso con cURL
-
-### Registrar usuario
-```bash
-curl -X POST http://localhost:8000/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "newuser@example.com",
-    "name": "New User",
-    "password": "SecurePass123"
-  }'
-```
-
-### Login
-```bash
-curl -X POST http://localhost:8000/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "user@example.com",
-    "password": "SecurePass123"
-  }'
-```
-
-### Obtener usuario actual
-```bash
-curl -X GET http://localhost:8000/auth/me \
-  -H "Authorization: Bearer <access_token>"
-```
-
-### Health check
-```bash
-curl -X GET http://localhost:8000/health
-```
-
-### Sincronizar Jira
-```bash
-curl -X POST http://localhost:8000/providers/jira/sync \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <access_token>" \
-  -d '{
-    "workspace_id": "workspace-1"
-  }'
-```
-
----
-
-## Autenticación entre rutas
-
-La mayoría de rutas **no requieren autenticación** en este MVP. En producción:
-
-1. Se agregará la validación de JWT en las rutas que lo necesiten
-2. Se usará el header `Authorization: Bearer <token>`
-3. Se extraerá el usuario de `CurrentUserDep`
-
-Ejemplo de ruta protegida (futura):
-
-```python
-@router.post("/sync")
-async def sync(
-    request: SyncRequest,
-    user: CurrentUserDep,  # Requiere autenticación
-    service: OrchestratorServiceDep,
-) -> SyncReport:
-    # Usar user.id para registrar quién hizo la solicitud
-    return await service.sync(request)
-```
-
----
-
-## Status
-
-- ✅ Autenticación JWT (login/register/me/logout)
-- ✅ Health check
-- ✅ Providers (Jira, GitHub, AWS)
-- ✅ Webhooks (Jira)
-- 🔄 Endpoints de lectura (events, alerts, analysis) - próximamente
-- 🔄 WebSocket (eventos en tiempo real) - próximamente
-- 🔄 Agentes especializados integrados - próximamente
-
----
-
-## Variables de entorno requeridas
-
-```env
-# Supabase
-SUPABASE_URL=https://...supabase.co
-SUPABASE_SERVICE_ROLE_KEY=...
-SUPABASE_JWT_SECRET=...
-
-# Jira
-JIRA_BASE_URL=https://...atlassian.net
-JIRA_EMAIL=...
-JIRA_API_TOKEN=...
-JIRA_WEBHOOK_SECRET=...
-
-# AWS (opcional)
-AWS_ACCESS_KEY_ID=...
-AWS_SECRET_ACCESS_KEY=...
-AWS_REGION=us-east-1
-
-# GitHub (opcional)
-GITHUB_TOKEN=...
-
-# App
-ENV=development
-LOG_LEVEL=INFO
-```
+El cliente solo puede enviar `ping` (recibe `pong`). Cualquier otro mensaje se ignora.

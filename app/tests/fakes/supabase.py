@@ -80,6 +80,31 @@ class FakeQuery:
     def limit(self, size: int) -> FakeQuery:
         return self._record("limit", size)
 
+    def contains(self, column: str, value: Any) -> FakeQuery:
+        """Operador de contención de JSONB (``cs``)."""
+        return self._record("contains", column, value)
+
+    def in_(self, column: str, values: Any) -> FakeQuery:
+        return self._record("in_", column, values)
+
+    def ilike(self, column: str, pattern: str) -> FakeQuery:
+        return self._record("ilike", column, pattern)
+
+    def gte(self, column: str, value: Any) -> FakeQuery:
+        return self._record("gte", column, value)
+
+    def lte(self, column: str, value: Any) -> FakeQuery:
+        return self._record("lte", column, value)
+
+    def neq(self, column: str, value: Any) -> FakeQuery:
+        return self._record("neq", column, value)
+
+    def not_(self, *args: Any, **kwargs: Any) -> FakeQuery:
+        return self._record("not_", *args, **kwargs)
+
+    def text_search(self, column: str, query: str, **kwargs: Any) -> FakeQuery:
+        return self._record("text_search", column, query, **kwargs)
+
     async def execute(self) -> FakeResponse:
         self._table.calls.append(RecordedCall("execute"))
         return self._table.next_outcome()

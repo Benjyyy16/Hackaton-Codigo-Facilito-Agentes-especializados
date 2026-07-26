@@ -1,0 +1,208 @@
+{
+  "_description": "Caso demo completo de Datgent: compromiso de integración de pagos con riesgo CRÍTICO reproducible (score >= 80).",
+  "ids": {
+    "project": "a0000000-0000-4000-8000-000000000001",
+    "commitment": "a0000000-0000-4000-8000-000000000002",
+    "event_finance": "a0000000-0000-4000-8000-000000000010",
+    "event_jira": "a0000000-0000-4000-8000-000000000011",
+    "event_github": "a0000000-0000-4000-8000-000000000012",
+    "event_supabase": "a0000000-0000-4000-8000-000000000013",
+    "document_sla": "a0000000-0000-4000-8000-000000000020",
+    "document_acta": "a0000000-0000-4000-8000-000000000021"
+  },
+  "project": {
+    "id": "a0000000-0000-4000-8000-000000000001",
+    "name": "Pagos Empresariales",
+    "description": "Integración de pasarela de pagos para clientes enterprise",
+    "status": "active",
+    "external_references": {"jira": "DAT", "github": "datgent/pagos-enterprise"},
+    "hourly_cost": "75.00",
+    "currency": "USD"
+  },
+  "commitment": {
+    "id": "a0000000-0000-4000-8000-000000000002",
+    "project_id": "a0000000-0000-4000-8000-000000000001",
+    "title": "Entregar integración de pagos empresariales antes del viernes",
+    "description": "Módulo completo de pagos enterprise con certificación PCI y pruebas de integración con 3 bancos",
+    "beneficiary": "Cliente Enterprise",
+    "owner": "equipo-pagos",
+    "due_date": "2026-07-24T23:59:59Z",
+    "financial_exposure": "20000.00",
+    "currency": "USD",
+    "priority": "critical",
+    "status": "at_risk",
+    "source": "demo",
+    "metadata": {"sla_clause": "Cláusula 7.3 - Penalización por entrega tardía"}
+  },
+  "signals": {
+    "finance": {
+      "snapshot": {
+        "project_key": "PAGOS-ENT",
+        "commitment_ref": "Entregar integración de pagos empresariales antes del viernes",
+        "currency": "USD",
+        "budget_lines": [
+          {"concept": "Desarrollo backend pasarela", "planned": "18000", "actual": "14200", "currency": "USD", "category": "desarrollo"},
+          {"concept": "Integración APIs bancarias", "planned": "12000", "actual": "8950", "currency": "USD", "category": "integracion"},
+          {"concept": "QA y certificación PCI", "planned": "10000", "actual": "4500", "currency": "USD", "category": "calidad"},
+          {"concept": "Infraestructura y despliegue", "planned": "8000", "actual": "2000", "currency": "USD", "category": "infraestructura"}
+        ],
+        "labor_entries": [
+          {"role": "Tech Lead", "hours": "52", "hourly_rate": "85", "date": "2026-07-21"},
+          {"role": "Backend Senior", "hours": "48", "hourly_rate": "70", "date": "2026-07-21"},
+          {"role": "Backend Mid", "hours": "45", "hourly_rate": "55", "date": "2026-07-21"},
+          {"role": "QA Engineer", "hours": "30", "hourly_rate": "50", "date": "2026-07-21"},
+          {"role": "DevOps", "hours": "20", "hourly_rate": "75", "date": "2026-07-21"}
+        ],
+        "penalties": [
+          {
+            "description": "Penalización contractual por entrega tardía de integración de pagos",
+            "amount": "20000",
+            "trigger_condition": "No entregar módulo funcional antes del viernes 2026-07-25",
+            "probability": 0.85
+          }
+        ],
+        "retained_payments": "7200",
+        "period_start": "2026-07-14",
+        "period_end": "2026-07-25"
+      }
+    },
+    "jira": {
+      "issue_key": "DAT-42",
+      "summary": "Integración pasarela de pagos enterprise - módulo core",
+      "status": "Blocked",
+      "priority": "Critical",
+      "assignee": null,
+      "reporter": "pm@empresa.com",
+      "due_date": "2026-07-24",
+      "components": ["pagos", "enterprise", "backend"],
+      "labels": ["blocker", "sla-critical"],
+      "blocked_by": [
+        {
+          "key": "EXT-101",
+          "summary": "API certificación banco externo no disponible",
+          "status": "Waiting",
+          "type": "external_dependency",
+          "provider": "Banco Nacional",
+          "estimated_resolution": null
+        }
+      ],
+      "subtasks_total": 8,
+      "subtasks_done": 3,
+      "subtasks_blocked": 2,
+      "last_transition": "2026-07-20T10:00:00Z",
+      "days_in_status": 6,
+      "sprint": {"name": "Sprint 14", "end_date": "2026-07-25"}
+    },
+    "github": {
+      "repository": "datgent/pagos-enterprise",
+      "pull_requests": [
+        {
+          "number": 187,
+          "title": "feat: payment gateway integration",
+          "state": "open",
+          "draft": false,
+          "created_at": "2026-07-18T09:00:00Z",
+          "updated_at": "2026-07-22T15:00:00Z",
+          "mergeable": true,
+          "has_conflicts": false,
+          "approved_reviews": 0,
+          "additions": 3200,
+          "deletions": 180,
+          "url": "https://github.com/datgent/pagos-enterprise/pull/187"
+        }
+      ],
+      "checks": [
+        {"name": "integration-tests", "conclusion": "failure"},
+        {"name": "security-scan", "conclusion": "failure"},
+        {"name": "coverage-check", "conclusion": "failure"}
+      ],
+      "coverage": 42,
+      "migrations": [
+        {
+          "path": "db/migrations/20260720_add_payment_tables.sql",
+          "content": "DROP TABLE payment_logs_v1;\nCREATE TABLE payments (id uuid primary key);",
+          "has_rollback": false
+        }
+      ],
+      "branch": "feat/payment-gateway",
+      "commits_behind_main": 12,
+      "last_commit_at": "2026-07-22T15:00:00Z"
+    },
+    "supabase": {
+      "migrations": [
+        {
+          "name": "20260720_add_payment_tables",
+          "applied_at": "2026-07-20T11:00:00Z",
+          "has_rollback": false,
+          "tables_affected": ["payments", "payment_methods", "payment_logs_v1"]
+        }
+      ],
+      "security_issues": [
+        {
+          "type": "missing_rls",
+          "table": "payments",
+          "severity": "high",
+          "description": "Tabla payments sin Row Level Security; cualquier usuario autenticado puede leer todos los pagos"
+        }
+      ],
+      "performance_issues": [
+        {
+          "type": "missing_index",
+          "table": "payments",
+          "column": "customer_id",
+          "estimated_impact": "Full table scan en consultas por cliente (>100k filas esperadas)"
+        }
+      ]
+    }
+  },
+  "documents": [
+    {
+      "id": "a0000000-0000-4000-8000-000000000020",
+      "title": "Cláusula SLA - Penalización por entrega tardía",
+      "content": "Cláusula 7.3 del contrato de servicios: Si el módulo de integración de pagos empresariales no se entrega funcional y certificado antes del viernes 25 de julio de 2026, se aplicará una penalización contractual de USD 20,000 (veinte mil dólares). La penalización se deduce del siguiente pago programado. El cliente puede además rescindir el contrato sin penalidad adicional si el retraso supera 5 días hábiles.",
+      "source_type": "document",
+      "source_url": "https://docs.empresa.com/contratos/enterprise-2026/clausula-7.3"
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000021",
+      "title": "Acta de acuerdo de fecha de entrega",
+      "content": "Acta de reunión 2026-07-10: Se acuerda con Cliente Enterprise que la fecha límite de entrega del módulo de pagos es el viernes 25 de julio de 2026. El equipo acepta el compromiso con la condición de recibir acceso a la API de certificación del banco antes del 15 de julio. NOTA: Al 20 de julio el banco NO ha proporcionado acceso a la API de certificación. El PM ha escalado al director comercial.",
+      "source_type": "document",
+      "source_url": "https://docs.empresa.com/actas/2026-07-10-kickoff-enterprise"
+    }
+  ],
+  "source_events": [
+    {
+      "id": "a0000000-0000-4000-8000-000000000010",
+      "provider": "finance",
+      "external_id": "fin-snapshot-20260721",
+      "event_type": "budget_snapshot",
+      "event_hash": "demo-finance-hash-001",
+      "occurred_at": "2026-07-21T08:00:00Z"
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000011",
+      "provider": "jira",
+      "external_id": "DAT-42-blocked",
+      "event_type": "issue_status_changed",
+      "event_hash": "demo-jira-hash-001",
+      "occurred_at": "2026-07-20T10:00:00Z"
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000012",
+      "provider": "github",
+      "external_id": "pr-187-checks-failed",
+      "event_type": "check_suite_completed",
+      "event_hash": "demo-github-hash-001",
+      "occurred_at": "2026-07-22T15:00:00Z"
+    },
+    {
+      "id": "a0000000-0000-4000-8000-000000000013",
+      "provider": "supabase",
+      "external_id": "migration-20260720",
+      "event_type": "migration_applied",
+      "event_hash": "demo-supabase-hash-001",
+      "occurred_at": "2026-07-20T11:00:00Z"
+    }
+  ]
+}

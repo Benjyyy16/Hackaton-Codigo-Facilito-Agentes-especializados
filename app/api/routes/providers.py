@@ -17,12 +17,12 @@ from app.api.deps import (
     PrincipalDep,
     ProviderRegistryDep,
 )
-from app.core.exceptions import ErrorResponse
+from app.core.exceptions import EntityNotFoundError, ErrorResponse
 from app.core.logging import get_logger
 from app.integrations.jira.security import JIRA_DELIVERY_HEADER
 from app.schemas.events import ProviderName
 from app.schemas.jira import WebhookAck
-from app.schemas.providers import ProviderInfo, SyncReport, SyncRequest
+from app.schemas.providers import ProviderHealth, ProviderInfo, SyncReport, SyncRequest
 
 logger = get_logger("api.providers")
 
@@ -46,6 +46,44 @@ ProviderPath = Annotated[
 async def list_providers(registry: ProviderRegistryDep) -> list[ProviderInfo]:
     """Describe los providers disponibles (RF-2, apoyo operativo)."""
     return await registry.describe()
+
+
+@router.get(
+    "/providers/{provider}/health",
+    response_model=ProviderHealth,
+    summary="Estado de un provider concreto",
+    description=(
+        "Sondea un único provider y devuelve su estado con la latencia medida.\n\n"
+        "Existe separado de `GET /providers` porque sondear uno solo es mucho más barato "
+        "que sondear todos: un panel que refresca el estado de una integración concreta no "
+        "debe provocar una llamada a cada sistema externo.\n\n"
+        "Un provider no configurado responde `404`, no un estado inventado: no saber nada de "
+        "una integración que nadie configuró es distinto de saber que está caída."
+    ),
+    responses={
+        status.HTTP_404_NOT_FOUND: {
+            "model": ErrorResponse,
+            "description": "El provider no está configurado en esta instancia.",
+        },
+    },
+)
+async def provider_health(
+    provider: ProviderPath, registry: ProviderRegistryDep
+) -> ProviderHealth:
+    """Sondea un provider.
+
+    Eleva ``EntityNotFoundError`` si no está registrado; el manejador de excepciones lo
+    traduce a 404. La ruta no construye ``HTTPException``, para que el mapeo a HTTP viva
+    en un solo sitio.
+    """
+    if provider not in registry.names():
+        raise EntityNotFoundError(
+            f"El provider '{provider.value}' no está configurado.",
+            details={"provider": provider.value},
+        )
+
+    adapter = registry.get(provider)
+    return await adapter.health()
 
 
 @router.post(

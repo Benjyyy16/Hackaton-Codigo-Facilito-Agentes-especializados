@@ -110,6 +110,16 @@ class Settings(BaseSettings):
     VERCEL_CLIENT_ID: str | None = None
     VERCEL_CLIENT_SECRET: SecretStr | None = None
 
+    # --- OpenAI -------------------------------------------------------------------
+    OPENAI_API_KEY: SecretStr | None = None
+    OPENAI_MODEL: str = "gpt-4o-mini"
+    OPENAI_TIMEOUT_SECONDS: float = Field(default=30.0, gt=0, le=120)
+
+    # --- Demo mode ----------------------------------------------------------------
+    #: Habilita rutas /demo/* en cualquier entorno (incluido production).
+    #: Sin esta bandera, solo funcionan en development/test.
+    DEMO_MODE_ENABLED: bool = False
+
     # --- Reglas de negocio --------------------------------------------------------
     RISK_ALERT_THRESHOLD: int = Field(default=70, ge=0, le=100)
 

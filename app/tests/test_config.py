@@ -17,17 +17,18 @@ from app.tests.conftest import VALID_SETTINGS, build_settings
 
 
 class TestRequiredVariables:
-    """RF-1.2: falta una variable obligatoria y el arranque falla nombrándola."""
+    """RF-1.2: falta una variable obligatoria y el arranque falla nombrándola.
+
+    Solo las credenciales de Supabase son obligatorias. Las de cada provider son
+    opcionales a propósito: un provider sin configurar no se registra, en lugar de
+    impedir el arranque (ver ``build_provider_registry`` en ``app/main.py``).
+    """
 
     @pytest.mark.parametrize(
         "missing",
         [
             "SUPABASE_URL",
             "SUPABASE_SERVICE_ROLE_KEY",
-            "JIRA_BASE_URL",
-            "JIRA_EMAIL",
-            "JIRA_API_TOKEN",
-            "JIRA_WEBHOOK_SECRET",
         ],
     )
     def test_missing_required_variable_is_reported_by_name(self, missing: str) -> None:
@@ -39,6 +40,23 @@ class TestRequiredVariables:
         message = str(excinfo.value)
         assert missing in message
         assert "obligatoria ausente" in message
+
+    @pytest.mark.parametrize(
+        "optional",
+        [
+            "JIRA_BASE_URL",
+            "JIRA_EMAIL",
+            "JIRA_API_TOKEN",
+            "JIRA_WEBHOOK_SECRET",
+        ],
+    )
+    def test_missing_provider_variable_still_starts(self, optional: str) -> None:
+        """Un provider sin credenciales no impide arrancar: queda sin registrar."""
+        values = {k: v for k, v in VALID_SETTINGS.items() if k != optional}
+
+        settings = load_settings(_env_file=None, **values)
+
+        assert getattr(settings, optional) is None
 
     def test_all_required_variables_present_succeeds(self) -> None:
         assert load_settings(_env_file=None, **VALID_SETTINGS)

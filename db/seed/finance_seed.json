@@ -1,0 +1,53 @@
+{
+  "project_key": "PAGOS-ENT",
+  "commitment_ref": "Entregar integración de pagos empresariales antes del viernes",
+  "currency": "USD",
+  "budget_lines": [
+    {
+      "concept": "Desarrollo backend pasarela",
+      "planned": "18000",
+      "actual": "14200",
+      "currency": "USD",
+      "category": "desarrollo"
+    },
+    {
+      "concept": "Integración APIs bancarias",
+      "planned": "12000",
+      "actual": "8950",
+      "currency": "USD",
+      "category": "integracion"
+    },
+    {
+      "concept": "QA y certificación PCI",
+      "planned": "10000",
+      "actual": "4500",
+      "currency": "USD",
+      "category": "calidad"
+    },
+    {
+      "concept": "Infraestructura y despliegue",
+      "planned": "8000",
+      "actual": "2000",
+      "currency": "USD",
+      "category": "infraestructura"
+    }
+  ],
+  "labor_entries": [
+    {"role": "Tech Lead", "hours": "52", "hourly_rate": "85", "date": "2026-07-21"},
+    {"role": "Backend Senior", "hours": "48", "hourly_rate": "70", "date": "2026-07-21"},
+    {"role": "Backend Mid", "hours": "45", "hourly_rate": "55", "date": "2026-07-21"},
+    {"role": "QA Engineer", "hours": "30", "hourly_rate": "50", "date": "2026-07-21"},
+    {"role": "DevOps", "hours": "20", "hourly_rate": "75", "date": "2026-07-21"}
+  ],
+  "penalties": [
+    {
+      "description": "Penalización contractual por entrega tardía de integración de pagos",
+      "amount": "20000",
+      "trigger_condition": "No entregar módulo funcional antes del viernes 2026-07-25",
+      "probability": 0.85
+    }
+  ],
+  "retained_payments": "7200",
+  "period_start": "2026-07-14",
+  "period_end": "2026-07-25"
+}

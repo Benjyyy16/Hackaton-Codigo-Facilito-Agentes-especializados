@@ -23,9 +23,10 @@ from app.core.logging import get_logger
 
 logger = get_logger("supabase")
 
-# Tabla usada para la comprobación de salud. Se consulta con límite cero: interesa saber si
-# PostgREST responde, no traer datos.
-_HEALTH_PROBE_TABLE = "workspaces"
+# Tabla usada para la comprobación de salud. Se consulta con límite uno: interesa saber si
+# PostgREST responde, no traer datos. ``projects`` es la raíz del modelo de dominio, así que
+# existe siempre que el esquema esté aplicado.
+_HEALTH_PROBE_TABLE = "projects"
 
 
 async def create_supabase_client(settings: Settings) -> AsyncClient:
