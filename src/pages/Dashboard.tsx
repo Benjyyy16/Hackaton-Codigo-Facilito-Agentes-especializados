@@ -15,6 +15,11 @@ import { cn } from '@/lib/cn'
 export default function Dashboard() {
   const { projects, collaborators, user } = useAppStore()
   const [modalOpen, setModalOpen] = useState(false)
+  const [connectedIntegrations, setConnectedIntegrations] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('datgent.integrations') || '[]')
+    } catch { return [] }
+  })
   const navigate = useNavigate()
 
   const totalTasks = projects.reduce((s, p) => s + p.tasks.length, 0)
@@ -61,24 +66,44 @@ export default function Dashboard() {
               </div>
               <div className="space-y-2.5">
                 {[
-                  { name: 'GitHub', icon: '🐙', url: 'https://hackaton-codigo-facilito-agentes.onrender.com/auth/oauth/github/login', desc: 'Repos, PRs, issues' },
-                  { name: 'Jira', icon: '📋', url: 'https://hackaton-codigo-facilito-agentes.onrender.com/oauth/jira/authorize?token=demo', desc: 'Issues, sprints' },
-                  { name: 'Vercel', icon: '▲', url: 'https://hackaton-codigo-facilito-agentes.onrender.com/oauth/vercel/authorize?token=demo', desc: 'Deploys, logs' },
-                  { name: 'Slack', icon: '💬', url: 'https://hackaton-codigo-facilito-agentes.onrender.com/oauth/slack/authorize?token=demo', desc: 'Alertas' },
-                ].map((integration) => (
-                  <a
-                    key={integration.name}
-                    href={integration.url}
-                    className="flex items-center gap-3 rounded-lg border-2 border-ink-200 p-2.5 transition hover:border-violet-600 hover:bg-violet-50"
-                  >
-                    <span className="text-lg">{integration.icon}</span>
-                    <div className="flex-1 min-w-0">
-                      <span className="text-[12px] font-bold text-ink-900">{integration.name}</span>
-                      <span className="ml-1.5 text-[10px] text-ink-400">{integration.desc}</span>
-                    </div>
-                    <ArrowRight className="h-3.5 w-3.5 text-ink-300" />
-                  </a>
-                ))}
+                  { name: 'GitHub', icon: '🐙', desc: 'Repos, PRs, issues' },
+                  { name: 'Jira', icon: '📋', desc: 'Issues, sprints' },
+                  { name: 'Vercel', icon: '▲', desc: 'Deploys, logs' },
+                  { name: 'Slack', icon: '💬', desc: 'Alertas' },
+                ].map((integration) => {
+                  const isConnected = connectedIntegrations.includes(integration.name)
+                  return (
+                    <button
+                      key={integration.name}
+                      onClick={() => {
+                        const next = isConnected
+                          ? connectedIntegrations.filter(n => n !== integration.name)
+                          : [...connectedIntegrations, integration.name]
+                        setConnectedIntegrations(next)
+                        localStorage.setItem('datgent.integrations', JSON.stringify(next))
+                      }}
+                      className={cn(
+                        'flex w-full items-center gap-3 rounded-lg border-2 p-2.5 transition text-left',
+                        isConnected
+                          ? 'border-mint-500 bg-mint-50'
+                          : 'border-ink-200 hover:border-violet-600 hover:bg-violet-50'
+                      )}
+                    >
+                      <span className="text-lg">{integration.icon}</span>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-[12px] font-bold text-ink-900">{integration.name}</span>
+                        <span className="ml-1.5 text-[10px] text-ink-400">{integration.desc}</span>
+                      </div>
+                      {isConnected ? (
+                        <span className="rounded-full bg-mint-100 px-2 py-0.5 font-mono text-[8px] font-bold text-mint-700 border border-mint-300">
+                          ✓ ON
+                        </span>
+                      ) : (
+                        <ArrowRight className="h-3.5 w-3.5 text-ink-300" />
+                      )}
+                    </button>
+                  )
+                })}
               </div>
             </div>
 
