@@ -104,9 +104,10 @@ class BaseRepository:
                 "La entidad referenciada no existe.",
                 details={"table": self.table_name},
             )
-        logger.error(
-            "Error de Supabase en %s (code=%s)", self.table_name, code, exc_info=error
-        )
+        # Sin ``exc_info``: el manejador de excepciones registra la traza completa, y
+        # duplicarla aquí llenaría el log con la misma pila dos veces. Tampoco se registra el
+        # mensaje de PostgREST, que en algunas violaciones incluye valores de la fila.
+        logger.error("Error de Supabase en %s (code=%s)", self.table_name, code)
         return SupabaseError(details={"table": self.table_name})
 
     def _apply_soft_delete_filter(self, query: Any) -> Any:

@@ -221,30 +221,68 @@ Notas de implementación:
 
 ---
 
-## 5. Ingesta desde Jira
+## 5. Ingesta desde Jira — completado
 
-- [ ] 5.1 `app/integrations/jira/security.py`
+- [x] 5.1 `app/integrations/jira/security.py`
   - Validación del secreto compartido con `hmac.compare_digest`, por cabecera o por
     parámetro de consulta.
   - _Cierra: RF-5.2, RNF-1.3_
 
-- [ ] 5.2 `app/services/webhook_service.py`
+- [x] 5.2 `app/services/webhook_service.py`
   - Validar, normalizar, calcular `fingerprint`, detectar duplicado, persistir.
   - _Cierra: RF-5.3, RF-5.4, RF-5.5, RF-6.1, RF-6.2_
 
-- [ ] 5.3 `POST /webhooks/jira`
+- [x] 5.3 `POST /webhooks/jira`
   - Respuesta rápida; análisis vía `BackgroundTasks`; el evento persiste aunque el análisis
     falle.
   - _Cierra: RF-5.1, RF-5.7, RF-5.8_
 
-- [ ] 5.4 `app/services/jira_sync_service.py` y `POST /jira/sync`
+- [x] 5.4 `app/services/jira_sync_service.py` y `POST /jira/sync`
   - JQL propio u obtenido de la clave de proyecto, paginación completa, recuento de
     procesados, creados y omitidos, idempotencia, `404` si el proyecto no existe.
   - _Cierra: RF-4.1 … RF-4.7_
 
-- [ ] 5.5 Tests
+- [x] 5.5 Tests
   - Secreto inválido no persiste nada; duplicado responde `200` sin segunda inserción;
     tipo no soportado responde `202`; sincronización repetida no duplica.
+
+Notas de implementación:
+
+- El gancho de post-ingesta (`run_post_ingest` en `api/deps.py`) es una **costura, todavía sin
+  análisis real**: hoy solo registra. El orquestador se enchufa en el bloque 7. La ruta ya lo
+  programa con `BackgroundTasks` y hay test que lo comprueba, así que enchufarlo no toca la
+  ruta.
+- La deduplicación tiene dos capas y ambas están cubiertas: la comprobación previa por huella,
+  y la restricción de unicidad para la carrera entre dos entregas simultáneas. El segundo caso
+  tiene test propio, con la lectura devolviendo vacío y la inserción fallando con `23505`.
+- Un duplicado **no** programa análisis: reanalizar un evento ya visto solo gastaría trabajo.
+- `build_project_jql` escapa las comillas de la clave de proyecto, para que un valor
+  inesperado no pueda alterar la estructura de la consulta. Ordena por `updated DESC` para que,
+  si la recogida se corta por un límite, lo traído sea lo más reciente.
+- En la sincronización, un issue que falla se cuenta y no aborta la carga: abortar dejaría el
+  proyecto a medio cargar por un solo registro defectuoso.
+- La existencia del proyecto se comprueba **antes** de iterar, para que una clave equivocada
+  dé `404` en lugar de una sincronización vacía silenciosa.
+- El doble de Supabase ganó una cola de respuestas (`then`, `then_raises`). Sin ella no se
+  puede representar un flujo de lectura y escritura sobre la misma tabla, que es exactamente
+  lo que hace la ingesta.
+- La fixture `app` instala también un cliente HTTP de Jira sin red. Sin él, cualquier ruta que
+  declare esa dependencia fallaba antes de validar el cuerpo, y los tests de validación
+  acababan comprobando otra cosa.
+- Se quitó el `exc_info` del log del repositorio: el manejador ya registra la traza y estaba
+  saliendo duplicada. Tampoco se registra el mensaje de PostgREST, que en algunas violaciones
+  incluye valores de la fila.
+
+Verificación de extremo a extremo (ejecutada contra un proceso real):
+
+- Sin secreto y con secreto incorrecto: `401`, y **cero** llamadas a Supabase en el log, así
+  que nada se persistió antes de validar.
+- Secreto correcto por cabecera y por parámetro de consulta: ambos aceptados.
+- Evento no soportado: `202`, sin tocar el almacenamiento.
+- Evento válido autenticado: llega hasta la búsqueda por huella y devuelve `503` con
+  `PGRST205`, lo que confirma a la vez el orden del flujo y que el esquema sigue sin aplicar.
+- El secreto pasado por URL aparece **redactado** en el log de acceso de uvicorn. Sin el filtro
+  habría quedado en claro, que es el riesgo real de admitir el secreto en la URL.
 
 ---
 

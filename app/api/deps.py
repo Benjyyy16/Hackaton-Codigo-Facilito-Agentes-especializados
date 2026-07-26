@@ -7,12 +7,14 @@ completo con ``dependency_overrides``, sin parchear variables de módulo.
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from typing import Annotated, Any
 
 from fastapi import Depends, Request
 
 from app.core.config import Settings
 from app.core.exceptions import IntegrationError, SupabaseError
+from app.core.logging import get_logger
 from app.integrations.jira.client import JiraClient
 from app.repositories.alerts import AlertRepository
 from app.repositories.commitments import CommitmentRepository
@@ -20,6 +22,10 @@ from app.repositories.jira_events import JiraEventRepository
 from app.repositories.projects import ProjectRepository
 from app.repositories.risk_analyses import RiskAnalysisRepository
 from app.services.health_service import HealthService
+from app.services.jira_sync_service import JiraSyncService
+from app.services.webhook_service import IngestOutcome, WebhookService
+
+logger = get_logger("api.deps")
 
 # --- Estado de la aplicación --------------------------------------------------------
 
@@ -93,6 +99,57 @@ AlertRepositoryDep = Annotated[AlertRepository, Depends(get_alert_repository)]
 
 
 # --- Servicios ----------------------------------------------------------------------
+
+
+def get_webhook_service(
+    projects: ProjectRepositoryDep, events: JiraEventRepositoryDep
+) -> WebhookService:
+    return WebhookService(projects, events)
+
+
+WebhookServiceDep = Annotated[WebhookService, Depends(get_webhook_service)]
+
+
+def get_jira_sync_service(
+    jira: JiraClientDep, webhooks: WebhookServiceDep
+) -> JiraSyncService:
+    return JiraSyncService(jira, webhooks)
+
+
+JiraSyncServiceDep = Annotated[JiraSyncService, Depends(get_jira_sync_service)]
+
+
+async def run_post_ingest(outcome: IngestOutcome) -> None:
+    """Trabajo posterior a la ingesta de un evento.
+
+    Es la costura donde se enchufa el análisis. Hoy solo registra: el orquestador y el
+    servicio de análisis llegan en un bloque posterior.
+
+    Captura cualquier excepción a propósito. Se ejecuta como tarea en segundo plano, ya con el
+    evento persistido y la respuesta enviada a Jira; un fallo aquí debe quedar registrado sin
+    tumbar nada ni perder el evento (RF-5.8).
+    """
+    try:
+        logger.info(
+            "Pendiente de análisis: evento %s de %s",
+            outcome.event_id,
+            outcome.event.jira_issue_key,
+        )
+    except Exception as error:  # noqa: BLE001 - una tarea de fondo no debe propagar
+        logger.error("El trabajo posterior a la ingesta falló", exc_info=error)
+
+
+def get_post_ingest_hook() -> PostIngestHook:
+    """Devuelve el gancho de post-ingesta.
+
+    Existe como dependencia para que los tests puedan sustituirlo con
+    ``dependency_overrides`` y comprobar que la ruta lo programa.
+    """
+    return run_post_ingest
+
+
+PostIngestHook = Callable[[IngestOutcome], Awaitable[None]]
+PostIngestHookDep = Annotated[PostIngestHook, Depends(get_post_ingest_hook)]
 
 
 def get_health_service(request: Request, settings: SettingsDep) -> HealthService:

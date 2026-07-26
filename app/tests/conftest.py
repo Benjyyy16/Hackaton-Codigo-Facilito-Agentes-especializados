@@ -68,8 +68,28 @@ def fake_supabase() -> FakeSupabaseClient:
 
 
 @pytest.fixture
-def app(settings: Settings, fake_supabase: FakeSupabaseClient) -> FastAPI:
-    """Aplicación lista para usar, con el cliente de Supabase sustituido.
+def jira_http() -> Iterator[httpx.AsyncClient]:
+    """Cliente HTTP de Jira sin red, que responde vacío a todo.
+
+    La fixture ``app`` lo instala en ``app.state`` porque es lo que haría el ``lifespan``. Sin
+    él, cualquier ruta que declare la dependencia del cliente de Jira fallaría antes incluso
+    de validar el cuerpo de la petición, y un test de validación acabaría comprobando otra
+    cosa.
+    """
+    client = httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _request: httpx.Response(200, json={})),
+        base_url="https://example.atlassian.net",
+    )
+    yield client
+
+
+@pytest.fixture
+def app(
+    settings: Settings,
+    fake_supabase: FakeSupabaseClient,
+    jira_http: httpx.AsyncClient,
+) -> FastAPI:
+    """Aplicación lista para usar, con los clientes externos sustituidos.
 
     Se construye con ``create_app`` y luego se rellena ``app.state`` a mano, sin ejecutar el
     ``lifespan``: así ningún test intenta abrir una conexión real.
@@ -78,6 +98,7 @@ def app(settings: Settings, fake_supabase: FakeSupabaseClient) -> FastAPI:
 
     application = create_app(settings)
     application.state.supabase = fake_supabase
+    application.state.jira_http = jira_http
     return application
 
 

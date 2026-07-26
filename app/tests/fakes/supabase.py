@@ -26,6 +26,11 @@ class RecordedCall:
         return f"{self.method}(args={self.args}, kwargs={self.kwargs})"
 
 
+def _api_error(code: str, message: str = "error") -> APIError:
+    """Construye un ``APIError`` de ``postgrest`` con el código indicado."""
+    return APIError({"code": code, "message": message, "details": None, "hint": None})
+
+
 @dataclass
 class FakeResponse:
     """Equivalente a ``APIResponse``: datos y recuento."""
@@ -77,25 +82,46 @@ class FakeQuery:
 
     async def execute(self) -> FakeResponse:
         self._table.calls.append(RecordedCall("execute"))
-        if self._table.error is not None:
-            raise self._table.error
-        return self._table.response
+        return self._table.next_outcome()
 
 
 class FakeTable:
-    """Respuesta o error preparados para una tabla, más el registro de llamadas."""
+    """Respuestas preparadas para una tabla, más el registro de llamadas.
+
+    Admite dos modos. El habitual es una respuesta fija con ``returns``. Cuando un escenario
+    necesita respuestas distintas en llamadas sucesivas sobre la misma tabla (por ejemplo, una
+    búsqueda que no encuentra nada seguida de una inserción que devuelve la fila creada), se
+    encolan con ``then``. Sin esa distinción, un flujo de lectura y escritura sobre la misma
+    tabla no se puede representar.
+    """
 
     def __init__(self) -> None:
         self.response = FakeResponse()
         self.error: Exception | None = None
         self.calls: list[RecordedCall] = []
+        self._queue: list[FakeResponse | Exception] = []
 
     def returns(
         self, rows: list[dict[str, Any]], *, count: int | None = None
     ) -> FakeTable:
+        """Fija la respuesta por defecto, usada cuando la cola está vacía."""
         self.response = FakeResponse(data=rows, count=count)
         self.error = None
         return self
+
+    def then(self, rows: list[dict[str, Any]], *, count: int | None = None) -> FakeTable:
+        """Encola la respuesta de la siguiente ejecución."""
+        self._queue.append(FakeResponse(data=rows, count=count))
+        return self
+
+    def then_raises(self, error: Exception) -> FakeTable:
+        """Encola un fallo para la siguiente ejecución."""
+        self._queue.append(error)
+        return self
+
+    def then_raises_api_error(self, code: str, message: str = "error") -> FakeTable:
+        """Encola un ``APIError`` de ``postgrest`` con el código indicado."""
+        return self.then_raises(_api_error(code, message))
 
     def raises(self, error: Exception) -> FakeTable:
         self.error = error
@@ -103,9 +129,18 @@ class FakeTable:
 
     def raises_api_error(self, code: str, message: str = "error") -> FakeTable:
         """Prepara un ``APIError`` de ``postgrest`` con el código indicado."""
-        return self.raises(
-            APIError({"code": code, "message": message, "details": None, "hint": None})
-        )
+        return self.raises(_api_error(code, message))
+
+    def next_outcome(self) -> FakeResponse:
+        """Devuelve la respuesta que corresponde a esta ejecución, o eleva el fallo."""
+        if self._queue:
+            outcome = self._queue.pop(0)
+            if isinstance(outcome, Exception):
+                raise outcome
+            return outcome
+        if self.error is not None:
+            raise self.error
+        return self.response
 
     # --- Consultas sobre lo registrado --------------------------------------------
 

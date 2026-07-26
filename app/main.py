@@ -14,7 +14,7 @@ from typing import Final
 
 from fastapi import FastAPI, Request, Response
 
-from app.api.routes import health
+from app.api.routes import health, jira, webhooks
 from app.core.config import APP_NAME, APP_VERSION, Settings, get_settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import configure_logging, get_logger, set_request_id
@@ -117,6 +117,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     register_exception_handlers(app)
     app.include_router(health.router)
+    app.include_router(webhooks.router)
+    app.include_router(jira.router)
 
     return app
 
