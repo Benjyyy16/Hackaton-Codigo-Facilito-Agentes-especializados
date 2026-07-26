@@ -47,31 +47,64 @@ Notas de implementación:
 
 ---
 
-## 2. Persistencia
+## 2. Persistencia — completado
 
-- [ ] 2.1 `db/schema.sql`
+- [x] 2.1 `db/schema.sql`
   - Cinco tablas, UUID, `created_at`, `updated_at`, `deleted_at` donde corresponde.
   - Índices, restricción única de `fingerprint`, trigger de `updated_at`, RLS activo.
   - Script idempotente y reejecutable.
   - _Cierra: RF-7.3, RF-7.4, RF-7.6, RF-6.3_
 
-- [ ] 2.2 `app/integrations/supabase/client.py`
+- [x] 2.2 `app/integrations/supabase/client.py`
   - `AsyncClient` vía `acreate_client`, creado y cerrado en el `lifespan`.
   - _Cierra: RF-7.2 (base)_
 
-- [ ] 2.3 `app/repositories/base.py`
+- [x] 2.3 `app/repositories/base.py`
   - CRUD, paginación con `count="exact"`, exclusión automática de borrados lógicos,
     traducción de errores de `postgrest` (incluido `23505` → duplicado).
   - _Cierra: RF-7.4, RF-7.5, RF-6.4_
 
-- [ ] 2.4 Los cinco repositorios
+- [x] 2.4 Los cinco repositorios
   - `ProjectRepository`, `JiraEventRepository`, `CommitmentRepository`,
     `RiskAnalysisRepository`, `AlertRepository`, cada uno con sus consultas propias.
   - _Cierra: RF-7.1, RF-7.2_
 
-- [ ] 2.5 Tests
+- [x] 2.5 Tests
   - Doble del `AsyncClient` que registra la cadena de llamadas; verificar filtro de
     borrados, paginación y traducción del error de unicidad.
+
+Notas de implementación:
+
+- El cliente se guarda en el estado de la app, no en una variable de módulo. Un singleton de
+  importación obligaría a los tests a parchear globales y ataría el ciclo de vida al orden
+  de los imports.
+- `supabase-py` 2.31.0 no expone `aclose` ni `close` en `AsyncClient`, comprobado por
+  introspección. `close_supabase_client` lo detecta por `getattr` y no falla si no existe.
+- `ping()` devuelve booleano en lugar de elevar, porque su consumidor es el health check y su
+  contrato es reportar estado (RF-2.3).
+- Se añadieron dos verificaciones que el diseño no pedía pero que el esquema sí exige:
+  `risk_analyses` debe referirse a un evento o a un compromiso, y una alerta resuelta debe
+  tener `resolved_at`. Ambas se comprueban en el repositorio para fallar con un error de
+  dominio en lugar de con una violación de restricción.
+- `upsert_from_issue` omite los campos `None` a propósito: un payload de Jira sin fecha de
+  vencimiento no debe borrar la que ya estaba registrada.
+- Índice parcial único `alerts (commitment_id, reason) where status = 'open'`: impide que dos
+  análisis concurrentes abran dos alertas para el mismo motivo.
+- `MAX_PAGE_SIZE = 100` acota el rango que un cliente puede pedir.
+
+Verificación del esquema:
+
+- Sintaxis SQL validada con el parser real de PostgreSQL vía `pglast`: 22 sentencias
+  analizadas sin error.
+- El cuerpo del bloque `DO` se validó por separado, envolviéndolo como función
+  `returns void`, con control negativo que sí detecta el error al quitar `end loop`.
+- El cuerpo de `set_updated_at()` **no** se pudo validar: `pglast` falla con
+  `JSONDecodeError` en toda función `returns trigger`, incluida una mínima de tres líneas,
+  así que es una limitación de la herramienta y no del script. Ese cuerpo queda pendiente de
+  confirmar al aplicar el esquema en Supabase.
+- No hay Postgres local, así que **el esquema no se ha ejecutado contra ningún motor**. La
+  validación es sintáctica, no de ejecución.
+- `pglast` se retiró tras la verificación: no forma parte del stack.
 
 ---
 
