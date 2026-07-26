@@ -114,9 +114,25 @@ export function AuthModal({
   }
 
   /** Redirige al backend para login con OAuth */
-  function handleOAuth(provider: 'google' | 'github') {
+  async function handleOAuth(provider: 'google' | 'github') {
     setLoading('oauth')
-    window.location.href = api.oauthLoginUrl(provider)
+    try {
+      // Verificar que el provider está configurado en el backend
+      const res = await fetch(api.oauthLoginUrl(provider), { redirect: 'manual' })
+      if (res.type === 'opaqueredirect' || (res.status >= 300 && res.status < 400)) {
+        // Redirect exitoso — navegar
+        window.location.href = api.oauthLoginUrl(provider)
+        return
+      }
+      // Error del backend (provider no configurado)
+      setErrors({ email: `Login con ${provider === 'github' ? 'GitHub' : 'Google'} no disponible aún. Usá email y contraseña.` })
+      setTouched(true)
+    } catch {
+      // Network error o CORS — redirigir directo y dejar que el backend maneje
+      window.location.href = api.oauthLoginUrl(provider)
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function handleDemo() {
