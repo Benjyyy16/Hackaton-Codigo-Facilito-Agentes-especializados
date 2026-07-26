@@ -108,26 +108,63 @@ Verificación del esquema:
 
 ---
 
-## 3. Aplicación y health check
+## 3. Aplicación y health check — completado
 
-- [ ] 3.1 `app/main.py`
+- [x] 3.1 `app/main.py`
   - App factory, `lifespan` (sustituye `@app.on_event`), registro de routers y de
     manejadores de excepción, middleware de `request_id`.
   - _Cierra: RNF-2.2, RNF-3.2_
 
-- [ ] 3.2 `app/api/deps.py`
+- [x] 3.2 `app/api/deps.py`
   - Dependencias de cliente, repositorios y servicios. `get_current_principal` como hueco
     para JWT.
   - _Cierra: RNF-1.6_
 
-- [ ] 3.3 `GET /health`
+- [x] 3.3 `GET /health`
   - Estado, versión, entorno y dependencias. Degradado devuelve `200`; comprobación con
     timeout acotado.
   - _Cierra: RF-2.1, RF-2.2, RF-2.3, RF-2.4_
 
-- [ ] 3.4 Tests
+- [x] 3.4 Tests
   - `200` en condiciones normales; `200` degradado con Supabase caído; ausencia de datos
     sensibles en la respuesta.
+
+Notas de implementación:
+
+- No hay instancia de app a nivel de módulo. Se arranca con
+  `uvicorn app.main:create_app --factory`, porque instanciarla en el import obligaría a tener
+  el entorno completo resuelto solo para importar el módulo, incluida la recolección de
+  tests.
+- El `lifespan` **no** aborta el arranque si Supabase falla: el servicio queda degradado y
+  `GET /health` lo reporta. Abortar dejaría al operador sin forma de consultar qué falla.
+- Se distingue `unknown` de `down` en el estado de dependencia. No haber podido comprobar no
+  es lo mismo que estar caído, y solo `down` degrada el servicio.
+- El presupuesto de la sonda es 2 s, más corto que `HTTP_TIMEOUT_SECONDS`, para que el health
+  check responda rápido incluso con la dependencia agonizando.
+- Si el cliente ya envía `X-Request-ID`, se respeta, de modo que una traza que atraviesa
+  varios servicios conserva el identificador.
+- `Principal` y `get_current_principal` existen ya como hueco de JWT, con `PrincipalDep`
+  listo para que las rutas lo declaren.
+
+Verificación de extremo a extremo (ejecutada, no inferida):
+
+- El proceso arranca con uvicorn y `GET /health` responde `200`.
+- La cabecera `X-Request-ID` se genera, y una suministrada por el cliente se conserva.
+- El identificador de correlación aparece en las líneas de log de la petición, incluidas las
+  de la llamada saliente de `httpx`.
+- Contra la Supabase real del proyecto: las credenciales **funcionan** (PostgREST contesta
+  `404` a `/rest/v1/projects`, no `401`), y el `404` confirma que **el esquema todavía no
+  está aplicado**. El endpoint devolvió `200` con `status=degraded` y la dependencia en
+  `down`, así que la ruta degradada quedó verificada contra una dependencia real y no solo
+  con un doble.
+
+Pendiente conocido:
+
+- `db/schema.sql` sigue sin aplicarse en Supabase. Hay que ejecutarlo desde el editor SQL del
+  proyecto; `supabase-py` no puede lanzar DDL arbitrario sin una función RPC creada para eso.
+- Las líneas de `uvicorn.access` salen con `req=-`: se emiten fuera del alcance del
+  `contextvar` del middleware. Las líneas de la aplicación sí llevan el identificador, que es
+  donde importa.
 
 ---
 
