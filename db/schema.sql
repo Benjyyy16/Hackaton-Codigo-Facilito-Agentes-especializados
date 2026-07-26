@@ -229,3 +229,29 @@ alter table public.external_events  enable row level security;
 alter table public.commitments      enable row level security;
 alter table public.risk_analyses    enable row level security;
 alter table public.alerts           enable row level security;
+
+-- ---------------------------------------------------------------------------------
+-- integrations (credenciales por usuario)
+-- ---------------------------------------------------------------------------------
+create table if not exists public.integrations (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     text not null,
+  provider    text not null check (
+                provider in ('jira','github','notion','aws','rightway','slack','vercel','erp')
+              ),
+  credentials jsonb not null default '{}'::jsonb,
+  config      jsonb not null default '{}'::jsonb,
+  status      text not null default 'active' check (status in ('active','inactive')),
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now(),
+  unique (user_id, provider)
+);
+
+create trigger set_updated_at before update on public.integrations
+  for each row execute function public.set_updated_at();
+
+alter table public.integrations enable row level security;
+
+drop trigger if exists set_updated_at on public.integrations;
+create trigger set_updated_at before update on public.integrations
+  for each row execute function public.set_updated_at();
