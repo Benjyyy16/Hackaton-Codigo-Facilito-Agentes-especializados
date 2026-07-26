@@ -17,7 +17,7 @@ from typing import Final
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import auth, finance, health, integrations, oauth, oauth_login, agents as agents_routes, providers as provider_routes
+from app.api.routes import auth, finance, health, integrations, oauth, oauth_login, agents as agents_routes, chat as chat_routes, providers as provider_routes
 from app.core.config import APP_VERSION, Settings, get_settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import configure_logging, get_logger, set_request_id
@@ -164,6 +164,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(oauth.router)
     app.include_router(oauth_login.router)
     app.include_router(agents_routes.router)
+    app.include_router(chat_routes.router)
     app.include_router(health.router)
     app.include_router(provider_routes.router)
 
