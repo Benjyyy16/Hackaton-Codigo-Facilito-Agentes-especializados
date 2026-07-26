@@ -14,7 +14,9 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from typing import Annotated
 
-from fastapi import Depends, Request
+from fastapi import Depends, HTTPException, Request, status
+
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.agents.orchestrator import OrchestratorAgent
 from app.core.config import Settings
@@ -23,6 +25,8 @@ from app.core.logging import get_logger
 from app.providers.base import RepositoryBundle
 from app.providers.registry import ProviderRegistry
 from app.providers.supabase import SupabaseStorageProvider
+from app.schemas.auth import CurrentUser
+from app.services.auth_service import AuthService, AuthenticationError
 from app.services.health_service import HealthService
 from app.services.ingest_service import IngestOutcome, IngestService
 from app.services.orchestrator_service import OrchestratorService
@@ -195,3 +199,53 @@ async def get_current_principal() -> Principal:
 
 
 PrincipalDep = Annotated[Principal, Depends(get_current_principal)]
+
+
+# --- Autenticación JWT ---------------------------------------------------------------
+
+
+def get_auth_service(settings: SettingsDep) -> AuthService:
+    """Crea el servicio de autenticación."""
+    return AuthService(settings)
+
+
+AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
+
+
+security = HTTPBearer()
+
+
+async def get_current_user_optional(
+    request: Request, auth_service: AuthServiceDep
+) -> CurrentUser | None:
+    """Extrae el usuario del JWT si está presente, sino devuelve None."""
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return None
+
+    token = auth_header[7:]  # "Bearer " = 7 caracteres
+    try:
+        return auth_service.get_current_user(token)
+    except AuthenticationError:
+        return None
+
+
+OptionalUserDep = Annotated[CurrentUser | None, Depends(get_current_user_optional)]
+
+
+async def get_current_user_required(
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)],
+    auth_service: AuthServiceDep,
+) -> CurrentUser:
+    """Extrae el usuario del JWT. Requiere que el token esté presente y sea válido."""
+    try:
+        return auth_service.get_current_user(credentials.credentials)
+    except AuthenticationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from e
+
+
+CurrentUserDep = Annotated[CurrentUser, Depends(get_current_user_required)]
