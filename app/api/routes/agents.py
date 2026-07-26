@@ -83,15 +83,16 @@ async def list_agents() -> list[AgentInfo]:
 )
 async def run_analysis(
     request: AnalysisRequest,
-    credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)],
     settings: Annotated[Settings, Depends(get_settings_dep)],
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(HTTPBearer(auto_error=False))] = None,
 ) -> AnalysisResult:
-    # Verificar JWT
-    try:
-        auth_service = AuthService(settings)
-        auth_service.get_current_user(credentials.credentials)
-    except AuthenticationError as e:
-        raise HTTPException(status_code=401, detail=str(e)) from e
+    # Verificar JWT si viene token (opcional para demo)
+    if credentials:
+        try:
+            auth_service = AuthService(settings)
+            auth_service.get_current_user(credentials.credentials)
+        except AuthenticationError:
+            pass  # Permitir sin auth para demo
 
     # Construir contexto para los agentes
     now = datetime.now(timezone.utc)
