@@ -101,23 +101,22 @@ export function AuthModal({
     setTouched(true)
     if (!validate()) return
     setLoading('form')
-    await new Promise((r) => setTimeout(r, 850))
-    if (mode === 'login') signIn(email)
-    else signUp({ name, email })
-    setLoading(false)
-    onSuccess?.()
+    try {
+      if (mode === 'login') await signIn(email, password)
+      else await signUp({ name, email, password })
+      onSuccess?.()
+    } catch {
+      /* error ya se muestra en authError */
+    } finally {
+      setLoading(false)
+    }
   }
 
-  /** En producción: supabase.auth.signInWithOAuth({ provider }) */
-  async function handleOAuth(provider: 'google' | 'github') {
-    setLoading('oauth')
-    await new Promise((r) => setTimeout(r, 700))
-    signIn(
-      provider === 'google' ? 'cuenta.google@gmail.com' : 'dev@users.noreply.github.com',
-      'google',
-    )
-    setLoading(false)
-    onSuccess?.()
+  /** OAuth no disponible en backend — redirigir al formulario de login */
+  function handleOAuth(_provider: 'google' | 'github') {
+    setMode('login')
+    setTouched(false)
+    setErrors({})
   }
 
   async function handleDemo() {
