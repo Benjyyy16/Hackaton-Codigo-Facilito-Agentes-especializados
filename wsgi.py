@@ -5,7 +5,6 @@ Create the FastAPI app instance from factory.
 import os
 import sys
 from pathlib import Path
-from fastapi import FastAPI
 
 # Load .env if it exists
 env_file = Path(__file__).parent / ".env"
@@ -13,30 +12,56 @@ if env_file.exists():
     from dotenv import load_dotenv
     load_dotenv(env_file)
 
-# For debugging
-print(f"ENV vars present: SUPABASE_URL={bool(os.getenv('SUPABASE_URL'))}, JIRA_BASE_URL={bool(os.getenv('JIRA_BASE_URL'))}")
+def create_app_safe():
+    """Try to create the full app, fall back to minimal app on error."""
+    from fastapi import FastAPI
+    from fastapi.responses import JSONResponse
+    
+    try:
+        from app.core.config import Settings
+        from app.main import create_app
+        
+        settings = Settings()
+        app = create_app(settings)
+        print("✓ Full app initialized")
+        return app
+        
+    except Exception as e:
+        # Fallback: minimal app that always works
+        print(f"WARNING: Full app init failed: {e}", file=sys.stderr)
+        
+        app = FastAPI(
+            title="Commitment Twin Backend",
+            version="0.1.0"
+        )
+        
+        @app.get("/")
+        async def root():
+            return {
+                "service": "commitment-twin-backend",
+                "status": "degraded",
+                "error": str(e)
+            }
+        
+        @app.get("/health")
+        async def health():
+            return {
+                "status": "degraded",
+                "message": "Configuration missing or invalid",
+                "error": str(e)
+            }
+        
+        return app
 
+# Create app instance
 try:
-    from app.core.config import Settings
-    from app.main import create_app
-    
-    settings = Settings()
-    app = create_app(settings)
-    print("✓ App successfully initialized with full configuration")
-    
+    app = create_app_safe()
 except Exception as e:
-    print(f"ERROR initializing app: {e}", file=sys.stderr)
-    
-    # Fallback: minimal app
-    app = FastAPI(
-        title="Commitment Twin Backend",
-        description="Fallback mode - configuration incomplete"
-    )
-    
-    @app.get("/health")
-    def health():
-        return {"status": "error", "message": str(e)}
+    print(f"FATAL: Could not create app: {e}", file=sys.stderr)
+    # Absolute fallback
+    from fastapi import FastAPI
+    app = FastAPI()
     
     @app.get("/")
-    def root():
-        return {"service": "commitment-twin-backend", "status": "error"}
+    async def root():
+        return {"error": "Failed to initialize app"}
