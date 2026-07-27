@@ -36,6 +36,7 @@ export default function DatgentAnalysis() {
   )
   const { wsState } = useWsEvents({
     onEvent: onWsEvent,
+    sessionId: analysis.sessionId,
     enabled: true,
   })
 
