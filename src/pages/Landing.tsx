@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
@@ -11,18 +10,14 @@ import { UseCases } from '@/components/landing/UseCases'
 import { HowItWorks } from '@/components/landing/HowItWorks'
 import { Faq } from '@/components/landing/Faq'
 import { FinalCta } from '@/components/landing/FinalCta'
-import { AuthModal } from '@/components/auth/AuthModal'
 import { useAppStore } from '@/store/AppStore'
 
 export default function Landing() {
-  const [authOpen, setAuthOpen] = useState(false)
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login')
   const { signInDemo } = useAppStore()
   const navigate = useNavigate()
 
-  function openAuth(mode: 'login' | 'signup') {
-    setAuthMode(mode)
-    setAuthOpen(true)
+  function openAuth(_mode: 'login' | 'signup') {
+    navigate('/login')
   }
 
   /** Atajo: entra con la cuenta demo directo al dashboard. */
@@ -49,16 +44,6 @@ export default function Landing() {
       </main>
 
       <Footer />
-
-      <AuthModal
-        open={authOpen}
-        initialMode={authMode}
-        onClose={() => setAuthOpen(false)}
-        onSuccess={() => {
-          setAuthOpen(false)
-          navigate('/app')
-        }}
-      />
     </>
   )
 }
