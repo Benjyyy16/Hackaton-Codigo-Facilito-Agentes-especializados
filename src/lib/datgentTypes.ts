@@ -157,3 +157,62 @@ export interface WsEvent {
   risk_case_id: string | null
   data: Record<string, unknown>
 }
+
+// ── Flujo vivo ────────────────────────────────────────────────────────────────
+
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected'
+
+export interface LiveDecision {
+  id: string
+  action_type: string
+  title: string
+  rationale: string
+  payload: Record<string, unknown>
+  agent: string
+  approval_status: ApprovalStatus
+  approved_by: string | null
+  approved_at: string | null
+  rejection_reason: string | null
+  execution_status: string
+  created_at: string
+}
+
+export interface LiveAgentRecord {
+  agent: string
+  state: string
+  duration_ms: number
+  risk_score: number
+  severity: string
+  confidence: number
+  findings_count: number
+  missing_information: string[]
+}
+
+export interface LiveSession {
+  session_id: string
+  state: string
+  agents: LiveAgentRecord[]
+  evidence: unknown[]
+  risk_case: {
+    consolidated_score: number
+    severity: string
+    confidence: number
+    summary: string
+    causal_chain: string[]
+    premortem: string
+    scenarios: { label: string; description: string; probability: number; impact: number }[]
+    facts: string[]
+    inferences: string[]
+    assumptions: string[]
+    missing_information: string[]
+    is_partial: boolean
+  } | null
+  decisions: LiveDecision[]
+  timeline: unknown[]
+  agents_completed: number
+  agents_total: number
+  evidence_count: number
+  total_duration_ms: number
+  started_at: string | null
+  finished_at: string | null
+}

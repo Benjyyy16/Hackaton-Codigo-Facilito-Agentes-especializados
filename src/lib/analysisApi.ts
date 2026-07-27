@@ -39,6 +39,30 @@ export function startAnalysis(): Promise<{ session_id: string; state: string }> 
   return post('/live/analysis', {})
 }
 
+export function startAnalysisFromRepo(repo: {
+  full_name: string
+  description?: string | null
+  default_branch?: string
+  language?: string | null
+}): Promise<{ session_id: string; state: string }> {
+  return post('/live/analysis', {
+    commitment: {
+      title: `Análisis de ${repo.full_name}`,
+      description: repo.description || `Repositorio ${repo.full_name}`,
+      owner: repo.full_name.split('/')[0],
+      due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      priority: 'high',
+    },
+    signals: {
+      github: {
+        repo: repo.full_name,
+        branch: repo.default_branch || 'main',
+        language: repo.language,
+      },
+    },
+  })
+}
+
 export function getSession(sessionId: string): Promise<LiveSession> {
   return get(`/live/analysis/${sessionId}`)
 }

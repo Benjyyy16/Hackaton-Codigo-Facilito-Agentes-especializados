@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Brain, Play, Zap, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react'
 import { AppShell } from '@/components/app/AppShell'
@@ -26,8 +27,21 @@ const tabs: { id: Tab; label: string }[] = [
 export default function DatgentAnalysis() {
   const [tab, setTab] = useState<Tab>('agentes')
   const [showScenarios, setShowScenarios] = useState(false)
+  const [searchParams] = useSearchParams()
 
   const analysis = useAnalysis()
+
+  // Auto-iniciar análisis si hay repo en query param
+  useEffect(() => {
+    const repo = searchParams.get('repo')
+    const sessionParam = searchParams.get('session')
+    if (repo && !analysis.sessionId && !sessionParam && !analysis.isRunning) {
+      // Iniciar análisis de ese repo
+      analysis.startAnalysis().catch(() => {
+        // Error manejado por useAnalysis
+      })
+    }
+  }, [searchParams, analysis.sessionId, analysis.isRunning, analysis.startAnalysis])
 
   // Conectar WS solo cuando hay sesión o análisis en curso
   const onWsEvent = useCallback(

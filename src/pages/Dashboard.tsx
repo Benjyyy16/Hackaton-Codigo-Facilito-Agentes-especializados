@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowRight, GitPullRequest, Plus, Unplug, Users, CloudOff } from 'lucide-react'
+import { ArrowRight, GitPullRequest, Plus, Unplug, Users, CloudOff, Shield } from 'lucide-react'
 import { AppShell } from '@/components/app/AppShell'
 import { NewProjectModal } from '@/components/app/NewProjectModal'
 import { Button } from '@/components/ui/Button'
@@ -237,6 +237,21 @@ export default function Dashboard() {
                         </span>
                       )}
                     </div>
+
+                    {/* Botón analizar */}
+                    {p.repo && (
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          navigate(`/app/datgent?repo=${encodeURIComponent(p.repo!.fullName)}`)
+                        }}
+                        className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border-2 border-violet-600 bg-violet-50 px-3 py-2 font-mono text-[11px] font-bold uppercase tracking-wider text-violet-700 transition-all hover:bg-violet-600 hover:text-white"
+                      >
+                        <Shield className="h-3.5 w-3.5" />
+                        Analizar riesgos
+                      </button>
+                    )}
                   </div>
                 </Link>
               </motion.div>

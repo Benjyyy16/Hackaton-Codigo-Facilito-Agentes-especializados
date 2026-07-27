@@ -11,6 +11,8 @@ const ProjectBoard = lazy(() => import('@/pages/ProjectBoard'))
 const Profile = lazy(() => import('@/pages/Profile'))
 const DatgentAnalysis = lazy(() => import('@/pages/DatgentAnalysis'))
 const Login = lazy(() => import('@/pages/Login'))
+const OAuthCallback = lazy(() => import('@/pages/OAuthCallback'))
+const RepoSelector = lazy(() => import('@/pages/RepoSelector'))
 
 /** Bloquea rutas de la app si no hay sesión. */
 function Protected({ children }: { children: ReactNode }) {
@@ -69,7 +71,16 @@ function Router() {
               </Protected>
             }
           />
+          <Route
+            path="/app/datgent/select-repo"
+            element={
+              <Protected>
+                <RepoSelector />
+              </Protected>
+            }
+          />
           <Route path="/login" element={<Login />} />
+          <Route path="/oauth/callback" element={<OAuthCallback />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AnimatePresence>

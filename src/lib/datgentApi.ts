@@ -2,6 +2,8 @@
 
 import type {
   HealthResponse,
+  LiveDecision,
+  LiveSession,
   OrchestrateResponse,
   SchemaStatus,
   Severity,
@@ -99,6 +101,39 @@ export const datgent = {
   /** URL del canal de eventos. `https` pasa a `wss`. */
   eventsUrl(): string {
     return `${BASE_URL.replace(/^http/, 'ws')}/ws/events`
+  },
+
+  // ── Flujo vivo ─────────────────────────────────────────────────────────────
+
+  /** Inicia análisis en vivo (caso demo). Devuelve session_id. */
+  startLiveAnalysis(): Promise<{ session_id: string; state: string }> {
+    return request('/live/analysis', { method: 'POST', body: JSON.stringify({}) })
+  },
+
+  /** Estado completo de una sesión de análisis en vivo. */
+  getLiveSession(sessionId: string): Promise<LiveSession> {
+    return request<LiveSession>(`/live/analysis/${sessionId}`)
+  },
+
+  /** Aprobar una decisión pendiente. */
+  approveDecision(decisionId: string, approvedBy: string): Promise<LiveDecision> {
+    return request<LiveDecision>(`/live/decisions/${decisionId}/approve`, {
+      method: 'POST',
+      body: JSON.stringify({ approved_by: approvedBy }),
+    })
+  },
+
+  /** Rechazar una decisión pendiente. */
+  rejectDecision(decisionId: string, rejectedBy: string, reason: string): Promise<LiveDecision> {
+    return request<LiveDecision>(`/live/decisions/${decisionId}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ rejected_by: rejectedBy, reason }),
+    })
+  },
+
+  /** Reinicia sesiones en memoria (solo demo). */
+  resetSessions(): Promise<{ status: string }> {
+    return request('/live/reset', { method: 'DELETE' })
   },
 }
 
