@@ -9,6 +9,7 @@ import Landing from '@/pages/Landing'
 const Dashboard = lazy(() => import('@/pages/Dashboard'))
 const ProjectBoard = lazy(() => import('@/pages/ProjectBoard'))
 const Profile = lazy(() => import('@/pages/Profile'))
+const DatgentAnalysis = lazy(() => import('@/pages/DatgentAnalysis'))
 
 /** Bloquea rutas de la app si no hay sesión. */
 function Protected({ children }: { children: ReactNode }) {
@@ -56,6 +57,14 @@ function Router() {
             element={
               <Protected>
                 <Profile />
+              </Protected>
+            }
+          />
+          <Route
+            path="/app/datgent"
+            element={
+              <Protected>
+                <DatgentAnalysis />
               </Protected>
             }
           />

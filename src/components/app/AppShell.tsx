@@ -1,7 +1,7 @@
 import { type ReactNode } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { LayoutGrid, LogOut, Plus, UserCircle2, Zap } from 'lucide-react'
+import { Brain, LayoutGrid, LogOut, Plus, UserCircle2, Zap } from 'lucide-react'
 import { OrquestaMark, GitHubLogo } from '@/components/brand/Logos'
 import { Avatar } from '@/components/ui/Avatar'
 import { useAppStore } from '@/store/AppStore'
@@ -45,6 +45,21 @@ export function AppShell({
           >
             <LayoutGrid className="h-4 w-4" />
             Todos los tableros
+          </NavLink>
+
+          <NavLink
+            to="/app/datgent"
+            className={({ isActive }) =>
+              cn(
+                'mt-1.5 flex items-center gap-2.5 rounded-lg border-2 px-3 py-2.5 text-[13.5px] font-bold transition-all',
+                isActive
+                  ? 'border-ink-900 bg-violet-600 text-white shadow-hard-sm'
+                  : 'border-transparent text-ink-600 hover:border-ink-900 hover:bg-paper-100',
+              )
+            }
+          >
+            <Brain className="h-4 w-4" />
+            Datgent
           </NavLink>
 
           <div className="mt-7 flex items-center justify-between border-b-2 border-ink-900 pb-2">
