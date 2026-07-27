@@ -1,7 +1,7 @@
 import { type ReactNode } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { LayoutGrid, LogOut, Plus, UserCircle2, Zap, Shield } from 'lucide-react'
+import { Brain, LayoutGrid, LogOut, Plus, UserCircle2, Zap } from 'lucide-react'
 import { OrquestaMark, GitHubLogo } from '@/components/brand/Logos'
 import { Avatar } from '@/components/ui/Avatar'
 import { useAppStore } from '@/store/AppStore'
@@ -25,7 +25,7 @@ export function AppShell({
           <Link to="/" className="flex items-center gap-2.5">
             <OrquestaMark className="h-8 w-8" />
             <span className="text-[16px] font-extrabold tracking-tight text-ink-900">
-              Datgent<span className="text-violet-600">.</span>
+              Orquesta<span className="text-violet-600">.</span>
             </span>
           </Link>
         </div>
@@ -48,18 +48,18 @@ export function AppShell({
           </NavLink>
 
           <NavLink
-            to="/app/analisis"
+            to="/app/datgent"
             className={({ isActive }) =>
               cn(
-                'flex items-center gap-2.5 rounded-lg border-2 px-3 py-2.5 text-[13.5px] font-bold transition-all',
+                'mt-1.5 flex items-center gap-2.5 rounded-lg border-2 px-3 py-2.5 text-[13.5px] font-bold transition-all',
                 isActive
                   ? 'border-ink-900 bg-violet-600 text-white shadow-hard-sm'
                   : 'border-transparent text-ink-600 hover:border-ink-900 hover:bg-paper-100',
               )
             }
           >
-            <Shield className="h-4 w-4" />
-            Análisis de Riesgo
+            <Brain className="h-4 w-4" />
+            Datgent
           </NavLink>
 
           <div className="mt-7 flex items-center justify-between border-b-2 border-ink-900 pb-2">
@@ -163,7 +163,7 @@ export function AppShell({
         <div className="sticky top-0 z-40 flex h-[58px] items-center justify-between border-b-2 border-ink-900 bg-paper/95 px-4 backdrop-blur-md lg:hidden">
           <Link to="/app" className="flex items-center gap-2">
             <OrquestaMark className="h-7 w-7" />
-            <span className="text-[14.5px] font-extrabold text-ink-900">Datgent</span>
+            <span className="text-[14.5px] font-extrabold text-ink-900">Orquesta</span>
           </Link>
           <div className="flex items-center gap-2">
             {user?.isDemo && (

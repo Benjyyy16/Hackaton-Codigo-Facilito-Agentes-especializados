@@ -9,27 +9,25 @@ import {
 } from 'react'
 import type { Collaborator, Project, Task, TaskStatus, User } from './types'
 import { seedCollaborators, seedProjects } from './seed'
-import { api, saveTokens, clearTokens, getTokens, type ApiError } from '../lib/api'
 
-const STORAGE_KEY = 'datgent.session.v1'
+const STORAGE_KEY = 'orquesta.session.v1'
 
 /** Credenciales de la cuenta de demostración, visibles a propósito. */
 export const DEMO_CREDENTIALS = {
-  email: 'usuariohacktoncodfacilito@datgent.dev',
-  password: 'datgent2026',
+  email: 'demo@orquesta.dev',
+  password: 'orquesta2026',
 } as const
 
 interface AppStore {
   user: User | null
-  loading: boolean
-  authError: string | null
   projects: Project[]
   collaborators: Collaborator[]
-  signIn: (email: string, password: string, provider?: 'password' | 'google') => Promise<void>
-  signUp: (input: { name: string; email: string; password: string }) => Promise<void>
+  signIn: (email: string, provider?: 'password' | 'google') => void
+  signUp: (input: { name: string; email: string }) => void
   /** Entra con la cuenta demo sin pasar por el formulario */
   signInDemo: () => void
-  signOut: () => Promise<void>
+  signOut: () => void
+  setUser: (input: { id: string; name: string; email: string; avatar?: string }) => void
   updateProfile: (patch: Partial<Pick<User, 'name' | 'specialty' | 'title'>>) => void
   createProject: (input: { name: string; description: string; repoFullName?: string }) => Project
   deleteProject: (id: string) => void
@@ -58,8 +56,6 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       return null
     }
   })
-  const [loading, setLoading] = useState(false)
-  const [authError, setAuthError] = useState<string | null>(null)
   const [projects, setProjects] = useState<Project[]>(seedProjects)
   const [collaborators, setCollaborators] = useState<Collaborator[]>(seedCollaborators)
 
@@ -72,31 +68,10 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     }
   }, [user])
 
-  // Restaurar sesión desde token existente al montar
-  useEffect(() => {
-    const tokens = getTokens()
-    if (tokens && !user) {
-      api.auth.me().then((me) => {
-        setUser({
-          id: me.id,
-          name: me.name,
-          email: me.email,
-          specialty: 'Definí tu especialidad en el perfil',
-          title: 'Colaborador',
-          avatarHue: 200,
-          provider: 'password',
-        })
-      }).catch(() => {
-        clearTokens()
-      })
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
   const signInDemo = useCallback(() => {
     setUser({
       id: 'u_demo',
-      name: 'Usuario Hackton CodFacilito',
+      name: 'Ramón Ortega',
       email: DEMO_CREDENTIALS.email,
       specialty: 'Full-stack · React + Postgres',
       title: 'Tech Lead · cuenta demo',
@@ -107,75 +82,55 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const signIn = useCallback(
-    async (email: string, password: string, provider: 'password' | 'google' = 'password') => {
+    (email: string, provider: 'password' | 'google' = 'password') => {
       if (email.trim().toLowerCase() === DEMO_CREDENTIALS.email) {
         signInDemo()
         return
       }
-      setLoading(true)
-      setAuthError(null)
-      try {
-        const tokens = await api.auth.login({ email, password })
-        saveTokens(tokens)
-        const me = await api.auth.me()
-        setUser({
-          id: me.id,
-          name: me.name,
-          email: me.email,
-          specialty: 'Full-stack · React + Postgres',
-          title: 'Tech Lead',
-          avatarHue: 265,
-          provider,
-        })
-      } catch (err) {
-        const apiErr = err as ApiError
-        setAuthError(apiErr.detail || 'Error al iniciar sesión')
-        throw err
-      } finally {
-        setLoading(false)
-      }
+      setUser({
+        id: uid('u_'),
+        name: nameFromEmail(email),
+        email,
+        specialty: 'Full-stack · React + Postgres',
+        title: 'Tech Lead',
+        avatarHue: 265,
+        provider,
+      })
     },
     [signInDemo],
   )
 
-  const signUp = useCallback(async ({ name, email, password }: { name: string; email: string; password: string }) => {
-    setLoading(true)
-    setAuthError(null)
-    try {
-      const tokens = await api.auth.register({ email, name, password })
-      saveTokens(tokens)
-      setUser({
-        id: tokens.access_token.slice(-8), // temporal hasta llamar /me
-        name: name.trim() || nameFromEmail(email),
-        email,
-        specialty: 'Definí tu especialidad en el perfil',
-        title: 'Colaborador',
-        avatarHue: 155,
-        provider: 'password',
-      })
-      // Obtener id real
-      api.auth.me().then((me) => {
-        setUser((prev) => prev ? { ...prev, id: me.id } : prev)
-      }).catch(() => { /* fallback silencioso */ })
-    } catch (err) {
-      const apiErr = err as ApiError
-      setAuthError(apiErr.detail || 'Error al registrar')
-      throw err
-    } finally {
-      setLoading(false)
-    }
+  const signUp = useCallback(({ name, email }: { name: string; email: string }) => {
+    setUser({
+      id: uid('u_'),
+      name: name.trim() || nameFromEmail(email),
+      email,
+      specialty: 'Definí tu especialidad en el perfil',
+      title: 'Colaborador',
+      avatarHue: 155,
+      provider: 'password',
+    })
   }, [])
 
-  const signOut = useCallback(async () => {
-    try {
-      await api.auth.logout()
-    } catch {
-      /* ignorar error de logout */
-    } finally {
-      clearTokens()
-      setUser(null)
-    }
+  const signOut = useCallback(() => {
+    setUser(null)
+    try { localStorage.removeItem('datgent_token') } catch { /**/ }
   }, [])
+
+  const setUserFromAuth = useCallback(
+    (input: { id: string; name: string; email: string; avatar?: string }) => {
+      setUser({
+        id: input.id,
+        name: input.name,
+        email: input.email,
+        specialty: '',
+        title: '',
+        avatarHue: 265,
+        provider: 'password',
+      })
+    },
+    [],
+  )
 
   const updateProfile = useCallback((patch: Partial<User>) => {
     setUser((u) => (u ? { ...u, ...patch } : u))
@@ -301,14 +256,13 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AppStore>(
     () => ({
       user,
-      loading,
-      authError,
       projects,
       collaborators,
       signIn,
       signUp,
       signInDemo,
       signOut,
+      setUser: setUserFromAuth,
       updateProfile,
       createProject,
       deleteProject,
@@ -320,14 +274,13 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     }),
     [
       user,
-      loading,
-      authError,
       projects,
       collaborators,
       signIn,
       signUp,
       signInDemo,
       signOut,
+      setUserFromAuth,
       updateProfile,
       createProject,
       deleteProject,

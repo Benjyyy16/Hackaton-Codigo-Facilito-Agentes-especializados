@@ -1,25 +1,25 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowRight, Bot, GitPullRequest, Plus, Plug, Unplug, Users, Zap } from 'lucide-react'
+import { ArrowRight, GitPullRequest, Plus, Unplug, Users, CloudOff } from 'lucide-react'
 import { AppShell } from '@/components/app/AppShell'
 import { NewProjectModal } from '@/components/app/NewProjectModal'
 import { Button } from '@/components/ui/Button'
 import { Avatar } from '@/components/ui/Avatar'
-import { Stamp } from '@/components/ui/Bits'
+import { Odometer, Stamp } from '@/components/ui/Bits'
 import { GitHubLogo, SupabaseLogo } from '@/components/brand/Logos'
 import { useAppStore } from '@/store/AppStore'
+import { useProjects } from '@/hooks/useProjects'
 import { cn } from '@/lib/cn'
 
 export default function Dashboard() {
   const { projects, collaborators, user } = useAppStore()
+  const { projects: apiProjects, loading: apiLoading, error: apiError } = useProjects()
   const [modalOpen, setModalOpen] = useState(false)
-  const [connectedIntegrations, setConnectedIntegrations] = useState<string[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem('datgent.integrations') || '[]')
-    } catch { return [] }
-  })
   const navigate = useNavigate()
+
+  // Banner sutil si API no disponible
+  const usingApi = !apiError && !apiLoading && apiProjects.length > 0
 
   const totalTasks = projects.reduce((s, p) => s + p.tasks.length, 0)
   const doneTasks = projects.reduce(
@@ -30,7 +30,7 @@ export default function Dashboard() {
 
   return (
     <AppShell onNewProject={() => setModalOpen(true)}>
-      <div className="mx-auto w-full max-w-7xl px-5 py-9 sm:px-8 sm:py-12">
+      <div className="mx-auto w-full max-w-6xl px-5 py-9 sm:px-8 sm:py-12">
         {/* Encabezado */}
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -38,7 +38,7 @@ export default function Dashboard() {
               {user ? `sesión · ${user.name.split(' ')[0]}` : 'bienvenido'}
             </p>
             <h1 className="mt-2 font-display text-[38px] leading-none tracking-tightest text-ink-900 sm:text-[46px]">
-              Centro de Control
+              Tus tableros
             </h1>
           </div>
           <Button onClick={() => setModalOpen(true)}>
@@ -47,112 +47,49 @@ export default function Dashboard() {
           </Button>
         </div>
 
-        {/* Layout principal: 2 columnas */}
-        <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_380px]">
-
-          {/* Columna izquierda: Análisis + Chat */}
-          <div>
-            {/* Tarjeta destacada que enlaza al análisis real */}
-            <Link
-              to="/app/analisis"
-              className="group flex items-center gap-4 rounded-xl border-2 border-violet-600 bg-violet-50 p-5 shadow-hard-violet transition-transform hover:-translate-y-1"
-            >
-              <div className="grid h-12 w-12 place-items-center rounded-lg border-2 border-ink-900 bg-violet-600 transition-all group-hover:-rotate-6">
-                <Zap className="h-5 w-5 text-white" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-[16px] font-bold text-ink-900">Análisis Multiagente</h3>
-                <p className="text-[12px] text-ink-600">
-                  Pipeline completo: 4 agentes, cadena causal, pre-mortem, escenarios y acciones.
-                </p>
-              </div>
-              <ArrowRight className="h-5 w-5 shrink-0 text-violet-600 transition-transform group-hover:translate-x-1" />
-            </Link>
-
-            {/* Chat con agentes */}
-            <AgentChat />
+        {/* Panel de resumen: ledger de 4 celdas */}
+        {usingApi && (
+          <div className="mt-4 rounded-lg border border-mint-600/30 bg-mint-900/10 px-3 py-2">
+            <p className="text-xs text-mint-400">
+              ✓ Conectado a API — {apiProjects.length} proyecto(s) en backend
+            </p>
           </div>
-
-          {/* Columna derecha: Integraciones + Resumen */}
-          <div className="space-y-6">
-            {/* Integraciones */}
-            <div className="rounded-xl border-2 border-ink-900 bg-paper p-5 shadow-hard">
-              <div className="flex items-center gap-2 mb-4">
-                <Plug className="h-4 w-4 text-violet-600" />
-                <h3 className="text-[15px] font-bold text-ink-900">Integraciones</h3>
-              </div>
-              <div className="space-y-2.5">
-                {[
-                  { name: 'GitHub', icon: '🐙', desc: 'Repos, PRs, issues' },
-                  { name: 'Jira', icon: '📋', desc: 'Issues, sprints' },
-                  { name: 'Vercel', icon: '▲', desc: 'Deploys, logs' },
-                  { name: 'Slack', icon: '💬', desc: 'Alertas' },
-                ].map((integration) => {
-                  const isConnected = connectedIntegrations.includes(integration.name)
-                  return (
-                    <button
-                      key={integration.name}
-                      onClick={() => {
-                        const next = isConnected
-                          ? connectedIntegrations.filter(n => n !== integration.name)
-                          : [...connectedIntegrations, integration.name]
-                        setConnectedIntegrations(next)
-                        localStorage.setItem('datgent.integrations', JSON.stringify(next))
-                      }}
-                      className={cn(
-                        'flex w-full items-center gap-3 rounded-lg border-2 p-2.5 transition text-left',
-                        isConnected
-                          ? 'border-mint-500 bg-mint-50'
-                          : 'border-ink-200 hover:border-violet-600 hover:bg-violet-50'
-                      )}
-                    >
-                      <span className="text-lg">{integration.icon}</span>
-                      <div className="flex-1 min-w-0">
-                        <span className="text-[12px] font-bold text-ink-900">{integration.name}</span>
-                        <span className="ml-1.5 text-[10px] text-ink-400">{integration.desc}</span>
-                      </div>
-                      {isConnected ? (
-                        <span className="rounded-full bg-mint-100 px-2 py-0.5 font-mono text-[8px] font-bold text-mint-700 border border-mint-300">
-                          ✓ ON
-                        </span>
-                      ) : (
-                        <ArrowRight className="h-3.5 w-3.5 text-ink-300" />
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* Resumen */}
-            <div className="rounded-xl border-2 border-ink-900 bg-paper p-5 shadow-hard">
-              <p className="label-mono text-ink-400 mb-3">resumen</p>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[12px] text-ink-600">Proyectos</span>
-                  <span className="font-display text-[20px] text-ink-900">{projects.length}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[12px] text-ink-600">Tareas cerradas</span>
-                  <span className="font-display text-[20px] text-ink-900">{doneTasks}/{totalTasks}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[12px] text-ink-600">Repos conectados</span>
-                  <span className="font-display text-[20px] text-ink-900">{connected}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[12px] text-ink-600">Colaboradores</span>
-                  <span className="font-display text-[20px] text-ink-900">{collaborators.length}</span>
-                </div>
-              </div>
-            </div>
+        )}
+        {apiError && (
+          <div className="mt-4 flex items-center gap-2 rounded-lg border border-ink-700 bg-ink-800/50 px-3 py-2">
+            <CloudOff className="h-3.5 w-3.5 text-ink-400" />
+            <p className="text-xs text-ink-400">API no disponible — mostrando datos locales</p>
+          </div>
+        )}
+        <div className="mt-8 overflow-hidden rounded-xl border-2 border-ink-900 bg-paper shadow-hard">
+          <div className="grid divide-y-2 divide-ink-100 sm:grid-cols-4 sm:divide-y-0 sm:divide-x-2">
+            {[
+              { label: 'proyectos', value: String(projects.length), icon: null },
+              { label: 'repos conectados', value: `${connected}/${projects.length}`, icon: 'gh' },
+              { label: 'tareas cerradas', value: `${doneTasks}/${totalTasks}`, icon: null },
+              { label: 'colaboradores', value: String(collaborators.length), icon: null },
+            ].map((s, i) => (
+              <motion.div
+                key={s.label}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.06 }}
+                className="p-4"
+              >
+                <p className="label-mono flex items-center gap-1.5 text-ink-400">
+                  {s.icon === 'gh' && <GitHubLogo className="h-3 w-3" />}
+                  {s.label}
+                </p>
+                <p className="mt-1.5 font-display text-[30px] leading-none tracking-tightest text-ink-900">
+                  <Odometer value={s.value} />
+                </p>
+              </motion.div>
+            ))}
           </div>
         </div>
 
-        {/* Proyectos — debajo */}
-        <div className="mt-10">
-          <h2 className="font-display text-[24px] tracking-tightest text-ink-900 mb-5">Proyectos</h2>
-          <div className="grid gap-5 lg:grid-cols-2">
+        {/* Proyectos */}
+        <div className="mt-10 grid gap-5 lg:grid-cols-2">
           {projects.map((p, i) => {
             const done = p.tasks.filter((t) => t.status === 'done').length
             const pct = p.tasks.length ? Math.round((done / p.tasks.length) * 100) : 0
@@ -325,7 +262,6 @@ export default function Dashboard() {
             </span>
           </motion.button>
         </div>
-        </div>
 
         {user?.isDemo && (
           <div className="mt-10 flex justify-center">
@@ -343,148 +279,5 @@ export default function Dashboard() {
         }}
       />
     </AppShell>
-  )
-}
-
-
-/* ═══════════════════════════════════════════════════════════════════════════ */
-
-interface ChatMessage {
-  role: 'user' | 'agent'
-  content: string
-  agent?: string
-}
-
-/**
- * Nombres de presentación de los agentes.
- *
- * Las claves son los identificadores que devuelve el backend y no se tocan: son lo que
- * empareja una respuesta con su agente. Este mapa existe para que renombrar la marca no
- * obligue a cambiar el contrato de la API.
- */
-const AGENT_DISPLAY_NAMES: Record<string, string> = {
-  orchestrator: 'Datgent Cerebro',
-  'orchestrator-agent': 'Datgent Cerebro',
-  'jira-agent': 'Agente Jira',
-  'code-agent': 'Agente Código',
-  'finance-agent': 'Agente Finanzas',
-  'database-agent': 'Agente Datos',
-}
-
-function agentDisplayName(agent?: string): string {
-  if (!agent) return 'Datgent Cerebro'
-  return AGENT_DISPLAY_NAMES[agent] ?? agent
-}
-
-function AgentChat() {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      role: 'agent',
-      content:
-        '¡Hola, soy Datgent Cerebro! Coordino los agentes especializados de Datgent para detectar riesgos, compromisos en peligro e impacto financiero antes de que afecten tus proyectos.',
-      agent: 'orchestrator',
-    },
-  ])
-  const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(false)
-
-  async function handleSend(e: React.FormEvent) {
-    e.preventDefault()
-    if (!input.trim() || loading) return
-
-    const userMsg = input.trim()
-    setInput('')
-    setMessages(prev => [...prev, { role: 'user', content: userMsg }])
-    setLoading(true)
-
-    try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-
-      const res = await fetch('https://hackaton-codigo-facilito-agentes.onrender.com/agents/chat', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          message: userMsg,
-          history: messages.map(m => ({ role: m.role === 'agent' ? 'assistant' : 'user', content: m.content })),
-        }),
-      })
-
-      if (!res.ok) throw new Error('Error del servidor')
-      const data = await res.json()
-
-      setMessages(prev => [...prev, { role: 'agent', content: data.response, agent: data.agent || 'orchestrator' }])
-    } catch {
-      setMessages(prev => [...prev, {
-        role: 'agent',
-        content: 'Servidor cargando... Intentá de nuevo en unos segundos.',
-        agent: 'orchestrator',
-      }])
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <div className="mt-8 rounded-xl border-2 border-ink-900 bg-paper shadow-hard overflow-hidden">
-      <div className="flex items-center gap-2 border-b-2 border-ink-200 bg-violet-50 px-4 py-3">
-        <Bot className="h-4 w-4 text-violet-600" />
-        <span className="text-[13px] font-bold text-ink-900">Datgent Cerebro</span>
-        <span className="font-mono text-[9.5px] uppercase tracking-wider text-ink-400">
-          núcleo multiagente
-        </span>
-        <span className="ml-auto rounded-full bg-mint-100 px-2 py-0.5 font-mono text-[9px] font-bold text-mint-700 border border-mint-300">
-          en vivo
-        </span>
-      </div>
-
-      {/* Messages */}
-      <div className="h-[300px] overflow-y-auto p-4 space-y-3">
-        {messages.map((msg, i) => (
-          <div key={i} className={cn('flex', msg.role === 'user' ? 'justify-end' : 'justify-start')}>
-            <div className={cn(
-              'max-w-[80%] rounded-xl px-3.5 py-2.5 text-[13px] leading-relaxed',
-              msg.role === 'user'
-                ? 'bg-violet-600 text-white'
-                : 'bg-ink-100 text-ink-800'
-            )}>
-              {msg.role === 'agent' && (
-                <span className="mb-1 block font-mono text-[9px] font-bold uppercase text-violet-600">
-                  🤖 {agentDisplayName(msg.agent)}
-                </span>
-              )}
-              <span className="whitespace-pre-wrap">{msg.content}</span>
-            </div>
-          </div>
-        ))}
-        {loading && (
-          <div className="flex justify-start">
-            <div className="rounded-xl bg-ink-100 px-3.5 py-2.5">
-              <span className="flex items-center gap-1.5 text-[12px] text-ink-500">
-                <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-violet-400" />
-                Analizando...
-              </span>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Input */}
-      <form onSubmit={handleSend} className="flex items-center gap-2 border-t-2 border-ink-200 p-3">
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Describí un compromiso o pregúntame sobre riesgos…"
-          className="flex-1 rounded-lg border-2 border-ink-200 bg-paper px-3 py-2 text-[13px] text-ink-900 placeholder:text-ink-400 focus:border-violet-600 focus:outline-none"
-        />
-        <button
-          type="submit"
-          disabled={loading || !input.trim()}
-          className="grid h-9 w-9 place-items-center rounded-lg border-2 border-ink-900 bg-violet-600 text-white transition hover:bg-violet-700 disabled:opacity-40"
-        >
-          <ArrowRight className="h-4 w-4" />
-        </button>
-      </form>
-    </div>
   )
 }
