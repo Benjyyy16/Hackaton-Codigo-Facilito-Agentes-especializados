@@ -17,7 +17,7 @@ export default function Login() {
 
   function handleGitHubLogin() {
     // Redirect a OAuth flow del backend
-    window.location.href = `${BACKEND_URL}/auth/oauth/github/authorize`
+    window.location.href = `${BACKEND_URL}/oauth/github/authorize`
   }
 
   return (
