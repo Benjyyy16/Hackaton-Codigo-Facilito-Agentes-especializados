@@ -3,7 +3,17 @@ import { parseWsEvent, type LiveSession, type WsConnectionState, type WsEvent } 
 import { requestJson } from '@/lib/http'
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:8000'
-const WS_URL = BACKEND_URL.replace(/^http/, 'ws') + '/ws/events'
+
+/**
+ * URL del canal WS, o `null` si no hay backend absoluto al que conectarse.
+ *
+ * En producción el frontend pega a rutas relativas y Vercel proxea el HTTP hacia
+ * el backend, pero **no** proxea WebSockets. Sin URL absoluta no hay WS posible,
+ * así que se va directo al polling en lugar de gastar reintentos condenados.
+ */
+const WS_URL: string | null = BACKEND_URL
+  ? BACKEND_URL.replace(/^http/, 'ws') + '/ws/events'
+  : null
 
 /** Reintentos de WebSocket antes de degradar a polling. */
 const MAX_RECONNECT = 3
@@ -208,11 +218,13 @@ export function useWsEvents({
       }
     }
 
-    const startPolling = () => {
+    const startPolling = (afterWsFailure: boolean) => {
       if (cancelled || pollTimer !== null) return
       setUsingPolling(true)
-      // Aún no se sabe si el polling responde: no se anuncia "en vivo" todavía
-      setState('reconnecting')
+      // Solo se anuncia "reconectando" si venimos de un WS caído. Cuando el WS no
+      // existe por diseño (proxy same-origin) no hay nada roto que reportar: el
+      // estado pasa a "en vivo" en cuanto un poll responde.
+      if (afterWsFailure) setState('reconnecting')
       void pollOnce()
       pollTimer = setInterval(() => void pollOnce(), POLL_INTERVAL_MS)
     }
@@ -228,12 +240,18 @@ export function useWsEvents({
     const connect = () => {
       if (cancelled) return
 
+      // Sin URL absoluta (proxy same-origin) el WS es imposible: al polling
+      if (WS_URL === null) {
+        startPolling(false)
+        return
+      }
+
       let ws: WebSocket
       try {
         ws = new WebSocket(WS_URL)
       } catch {
         markFailure()
-        startPolling()
+        startPolling(true)
         return
       }
       socket = ws
@@ -289,7 +307,7 @@ export function useWsEvents({
 
         if (attempts >= MAX_RECONNECT) {
           // WS no disponible en este entorno: se degrada a polling
-          startPolling()
+          startPolling(true)
           // El presupuesto sigue corriendo; si el polling tampoco responde → offline
           schedule(() => {
             if (!cancelled && budgetExhausted()) goOffline()
