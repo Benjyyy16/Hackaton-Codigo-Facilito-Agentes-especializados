@@ -96,15 +96,42 @@ class StartAnalysisRequest(BaseModel):
 
 
 def _demo_request() -> OrchestrateRequest:
-    """Construye la petición del caso de demostración desde el fixture.
+    """Construye la petición de la línea base del caso de demostración.
 
-    La fecha de vencimiento se ancla a "ayer" en lugar de usar la del fichero: así el
-    compromiso sigue apareciendo vencido con el paso del tiempo y el escenario se mantiene
-    estable en lugar de acumular meses de retraso.
+    Dos ajustes sobre el fixture, y los dos tienen motivo:
+
+    1. La fecha de vencimiento se ancla a "dentro de cuatro días" en lugar de usar la del
+       fichero. Así el compromiso arranca vivo y no vencido, y el escenario se mantiene
+       estable con el paso del tiempo en lugar de acumular meses de retraso.
+
+    2. La señal de Jira se presenta SANA: asignada, en progreso y sin bloqueos. El fixture
+       la trae ya bloqueada, y con ella el riesgo arranca en 100/100. Partiendo del máximo,
+       ``POST /live/simulate/jira`` no puede subirlo, y "el riesgo cambia tras el evento"
+       sería indemostrable. Arrancando desde una situación aceptable, el evento de Jira
+       produce un salto real y verificable.
+
+    Las señales de GitHub, finanzas y datos NO se tocan: el caso conserva sus problemas
+    técnicos y económicos, así que la línea base no es un falso "todo bien".
     """
     demo = json.loads(DEMO_CASE_PATH.read_text(encoding="utf-8"))
     commitment = demo["commitment"]
     project = demo.get("project", {})
+    signals = dict(demo.get("signals", {}))
+
+    baseline_due = datetime.now(UTC) + timedelta(days=4)
+    jira_signal = dict(signals.get("jira", {}))
+    jira_signal.update(
+        {
+            "status": "In Progress",
+            "assignee": commitment.get("owner") or "equipo-pagos",
+            "blocked_by": [],
+            "reassignment_count": 0,
+            "reopened": False,
+            "due_date": baseline_due.isoformat(),
+            "last_activity_at": datetime.now(UTC).isoformat(),
+        }
+    )
+    signals["jira"] = jira_signal
 
     return OrchestrateRequest(
         commitment=CommitmentInput(
@@ -112,7 +139,7 @@ def _demo_request() -> OrchestrateRequest:
             description=commitment.get("description"),
             beneficiary=commitment.get("beneficiary"),
             owner=commitment.get("owner"),
-            due_date=datetime.now(UTC) - timedelta(days=1),
+            due_date=baseline_due,
             financial_exposure=Decimal(str(commitment.get("financial_exposure", 0))),
             currency=commitment.get("currency", "USD"),
             priority=Priority(commitment.get("priority", "medium")),
@@ -122,7 +149,7 @@ def _demo_request() -> OrchestrateRequest:
             hourly_cost=Decimal(str(project.get("hourly_cost", 0))),
             currency=project.get("currency", "USD"),
         ),
-        signals=demo.get("signals", {}),
+        signals=signals,
         documents=demo.get("documents", []),
     )
 
