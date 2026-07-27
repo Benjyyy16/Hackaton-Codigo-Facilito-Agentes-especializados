@@ -80,6 +80,53 @@ def _provenance_for_registry(registry: ProviderRegistry) -> dict[str, str]:
 # --- Modelos de request/response ---
 
 
+class StartAnalysisRequest(BaseModel):
+    """Cuerpo de ``POST /live/analysis``, con todo opcional.
+
+    Se modela aparte de ``OrchestrateRequest`` porque enviar ``{}`` para pedir el caso demo
+    es el uso normal desde la interfaz. Reutilizando ``OrchestrateRequest`` sin más, ``{}``
+    fallaría con un 422 por falta de ``commitment``, y arrancar la demostración dejaría de
+    ser una llamada sin argumentos.
+    """
+
+    commitment: CommitmentInput | None = None
+    project: ProjectInput | None = None
+    signals: dict[str, Any] = Field(default_factory=dict)
+    documents: list[dict[str, Any]] = Field(default_factory=list)
+
+
+def _demo_request() -> OrchestrateRequest:
+    """Construye la petición del caso de demostración desde el fixture.
+
+    La fecha de vencimiento se ancla a "ayer" en lugar de usar la del fichero: así el
+    compromiso sigue apareciendo vencido con el paso del tiempo y el escenario se mantiene
+    estable en lugar de acumular meses de retraso.
+    """
+    demo = json.loads(DEMO_CASE_PATH.read_text(encoding="utf-8"))
+    commitment = demo["commitment"]
+    project = demo.get("project", {})
+
+    return OrchestrateRequest(
+        commitment=CommitmentInput(
+            title=commitment["title"],
+            description=commitment.get("description"),
+            beneficiary=commitment.get("beneficiary"),
+            owner=commitment.get("owner"),
+            due_date=datetime.now(UTC) - timedelta(days=1),
+            financial_exposure=Decimal(str(commitment.get("financial_exposure", 0))),
+            currency=commitment.get("currency", "USD"),
+            priority=Priority(commitment.get("priority", "medium")),
+        ),
+        project=ProjectInput(
+            name=project.get("name", "Datgent"),
+            hourly_cost=Decimal(str(project.get("hourly_cost", 0))),
+            currency=project.get("currency", "USD"),
+        ),
+        signals=demo.get("signals", {}),
+        documents=demo.get("documents", []),
+    )
+
+
 class ApproveBody(BaseModel):
     approved_by: str = Field(min_length=1, max_length=200)
 
@@ -102,43 +149,35 @@ async def start_analysis(
     background_tasks: BackgroundTasks,
     registry: ProviderRegistryDep,
     ws_manager: WsManagerDep,
-    body: OrchestrateRequest | None = None,
+    body: StartAnalysisRequest | None = None,
 ) -> dict[str, Any]:
-    """Arranca el análisis. Body opcional: si vacío usa caso demo. 409 si ya hay activo."""
+    """Arranca el análisis. Body opcional: si no trae compromiso usa el caso demo.
+
+    El cuerpo se modela con todos los campos opcionales, en lugar de reutilizar
+    ``OrchestrateRequest`` tal cual, porque un cliente que envía ``{}`` es el caso normal
+    para pedir el caso demo. Con ``OrchestrateRequest`` directamente, ``{}`` fallaría con
+    un 422 por falta de ``commitment``, y "empezar el análisis del caso demo" dejaría de
+    ser una llamada sin argumentos.
+    """
     svc = _get_service(request)
 
     if svc.has_active_session():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Ya hay una sesión de análisis activa.",
+            detail="Ya hay una sesión de análisis activa. Esperá a que termine.",
         )
 
-    # Si no viene body, usar caso demo
-    if body is None:
-        demo = json.loads(DEMO_CASE_PATH.read_text(encoding="utf-8"))
-        commitment = demo["commitment"]
-        project = demo.get("project", {})
-        body = OrchestrateRequest(
-            commitment=CommitmentInput(
-                title=commitment["title"],
-                description=commitment.get("description"),
-                beneficiary=commitment.get("beneficiary"),
-                owner=commitment.get("owner"),
-                due_date=datetime.now(UTC) - timedelta(days=1),
-                financial_exposure=Decimal(str(commitment.get("financial_exposure", 0))),
-                currency=commitment.get("currency", "USD"),
-                priority=Priority(commitment.get("priority", "medium")),
-            ),
-            project=ProjectInput(
-                name=project.get("name", "Datgent"),
-                hourly_cost=Decimal(str(project.get("hourly_cost", 0))),
-                currency=project.get("currency", "USD"),
-            ),
-            signals=demo.get("signals", {}),
-            documents=demo.get("documents", []),
+    if body is not None and body.commitment is not None:
+        resolved = OrchestrateRequest(
+            commitment=body.commitment,
+            project=body.project or ProjectInput(),
+            signals=body.signals,
+            documents=body.documents,
         )
+    else:
+        resolved = _demo_request()
 
-    context = _build_context(body)
+    context = _build_context(resolved)
     session_id = uuid4()
     provenance = _provenance_for_registry(registry)
 
