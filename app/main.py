@@ -30,6 +30,7 @@ from app.api.routes import (
     finance,
     health,
     integrations,
+    live as live_routes,
     oauth,
     oauth_login,
     orchestrate as orchestrate_routes,
@@ -220,6 +221,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     # RAG y Demo
     app.include_router(documents_routes.router)
     app.include_router(demo_routes.router)
+    # Live analysis
+    app.include_router(live_routes.router)
     # WebSocket
     app.include_router(ws_router)
 

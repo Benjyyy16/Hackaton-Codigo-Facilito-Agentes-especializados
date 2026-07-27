@@ -42,18 +42,22 @@ class EventType(StrEnum):
 
     SOURCE_EVENT_RECEIVED = "source_event.received"
     ANALYSIS_STARTED = "analysis.started"
+    AGENT_RUN_STARTED = "agent_run.started"
     AGENT_RUN_COMPLETED = "agent_run.completed"
     RISK_CASE_CREATED = "risk_case.created"
     RISK_CASE_UPDATED = "risk_case.updated"
     ALERT_CREATED = "alert.created"
     ALERT_ACKNOWLEDGED = "alert.acknowledged"
     ALERT_RESOLVED = "alert.resolved"
+    EVIDENCE_CREATED = "evidence.created"
     DECISION_CREATED = "decision.created"
     DECISION_APPROVED = "decision.approved"
     DECISION_REJECTED = "decision.rejected"
     DECISION_EXECUTED = "decision.executed"
+    DECISION_UPDATED = "decision.updated"
     COMMITMENT_STATUS_CHANGED = "commitment.status_changed"
     TIMELINE_APPENDED = "timeline.appended"
+    ANALYSIS_COMPLETED = "analysis.completed"
 
 
 class WsEvent(BaseModel):
