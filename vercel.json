@@ -5,6 +5,15 @@
   "installCommand": "npm ci",
   "devCommand": "npm run dev",
   "rewrites": [
+    { "source": "/auth/callback", "destination": "/index.html" },
+
+    { "source": "/live/:path*", "destination": "https://hackaton-codigo-facilito-agentes.onrender.com/live/:path*" },
+    { "source": "/auth/:path*", "destination": "https://hackaton-codigo-facilito-agentes.onrender.com/auth/:path*" },
+    { "source": "/providers/:path*", "destination": "https://hackaton-codigo-facilito-agentes.onrender.com/providers/:path*" },
+    { "source": "/projects", "destination": "https://hackaton-codigo-facilito-agentes.onrender.com/projects" },
+    { "source": "/projects/:path*", "destination": "https://hackaton-codigo-facilito-agentes.onrender.com/projects/:path*" },
+    { "source": "/health", "destination": "https://hackaton-codigo-facilito-agentes.onrender.com/health" },
+
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
