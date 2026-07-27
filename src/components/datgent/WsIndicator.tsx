@@ -10,23 +10,31 @@ const labels: Record<WsConnectionState, string> = {
   live: 'En vivo',
   reconnecting: 'Reconectando',
   disconnected: 'Desconectado',
+  offline: 'Backend offline',
 }
 
 const dot: Record<WsConnectionState, string> = {
   live: 'bg-mint-500',
   reconnecting: 'bg-clay-500',
   disconnected: 'bg-ink-400',
+  offline: 'bg-rose-500',
 }
 
 const text: Record<WsConnectionState, string> = {
   live: 'text-mint-700',
   reconnecting: 'text-clay-700',
   disconnected: 'text-ink-500',
+  offline: 'text-rose-600',
 }
 
 export function WsIndicator({ state }: WsIndicatorProps) {
   return (
-    <span className="inline-flex items-center gap-1.5">
+    <span
+      className="inline-flex items-center gap-1.5"
+      role="status"
+      aria-live="polite"
+      aria-label={`Conexión en tiempo real: ${labels[state]}`}
+    >
       <span className="relative flex h-2 w-2">
         {state === 'live' && (
           <motion.span

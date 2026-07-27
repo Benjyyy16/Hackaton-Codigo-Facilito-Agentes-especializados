@@ -89,6 +89,9 @@ for (const [cls, files] of used) {
       // falsos positivos conocidos: nombres de campo TS / atributos SVG
       'accent',
       'opacity',
+      // `'object'` aparece en comprobaciones `typeof x === 'object'`
+      'object',
+      'table',
     ].includes(utility)
   )
     continue

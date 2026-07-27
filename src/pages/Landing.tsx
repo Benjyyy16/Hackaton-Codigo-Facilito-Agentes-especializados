@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
@@ -16,15 +17,23 @@ export default function Landing() {
   const { signInDemo } = useAppStore()
   const navigate = useNavigate()
 
-  function openAuth(_mode: 'login' | 'signup') {
-    navigate('/login')
-  }
+  /**
+   * La autenticación vive en `/login` (OAuth del backend), no en un modal:
+   * el flujo sale del navegador hacia el provider y vuelve por callback, así
+   * que una página propia es lo que corresponde.
+   */
+  const openAuth = useCallback(
+    (mode: 'login' | 'signup') => {
+      navigate(`/login?mode=${mode}`)
+    },
+    [navigate],
+  )
 
   /** Atajo: entra con la cuenta demo directo al dashboard. */
-  function enterDemo() {
+  const enterDemo = useCallback(() => {
     signInDemo()
     navigate('/app')
-  }
+  }, [signInDemo, navigate])
 
   return (
     <>

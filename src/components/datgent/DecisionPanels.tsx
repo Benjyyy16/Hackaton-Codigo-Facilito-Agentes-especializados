@@ -165,6 +165,11 @@ export function DecisionCard({
             type="button"
             onClick={approve}
             disabled={busy !== null}
+            aria-label={
+              confirming
+                ? `Confirmar acción sensible: ${decision.title}`
+                : `Aprobar: ${decision.title}`
+            }
             className={cn(
               'inline-flex items-center gap-1.5 rounded-lg border-2 border-ink-900 px-3 py-1.5 text-[11.5px] font-bold transition disabled:opacity-50',
               confirming
@@ -179,6 +184,7 @@ export function DecisionCard({
             type="button"
             onClick={reject}
             disabled={busy !== null}
+            aria-label={`Rechazar: ${decision.title}`}
             className="rounded-lg border-2 border-ink-900 bg-paper px-3 py-1.5 text-[11.5px] font-bold text-ink-900 transition hover:bg-ink-50 disabled:opacity-50"
           >
             Rechazar
@@ -187,6 +193,7 @@ export function DecisionCard({
             <button
               type="button"
               onClick={() => setConfirming(false)}
+              aria-label={`Cancelar la confirmación de: ${decision.title}`}
               className="text-[11.5px] font-medium text-ink-500 underline"
             >
               cancelar

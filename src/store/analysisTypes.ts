@@ -135,7 +135,10 @@ export interface Commitment {
   previous_status?: string
 }
 
-// Eventos WebSocket
+// ── Eventos WebSocket ─────────────────────────────────────────────
+// Unión discriminada: el `switch (event.type)` del reducer estrecha `data`
+// al payload correcto, así no hacen falta casts sueltos en cada rama.
+
 export type WsEventType =
   | 'source_event.received'
   | 'analysis.started'
@@ -158,15 +161,156 @@ export type WsEventType =
   | 'cerebro.state_changed'
   | 'pong'
 
-export interface WsEvent {
-  type: WsEventType
+interface WsEnvelope {
   version?: string
   occurred_at?: string
-  data: Record<string, unknown>
+}
+
+export interface AgentStartedPayload {
+  agent: string
+}
+
+export interface AgentCompletedPayload {
+  agent: string
+  status?: LiveAgentState
+  risk_score?: number
+  severity?: string
+  confidence?: number
+  findings?: Finding[]
+  duration_ms?: number
+  missing_information?: string[]
+}
+
+export interface AnalysisStartedPayload {
+  session_id?: string
+}
+
+export interface RiskUpdatedPayload {
+  consolidated_score: number
+  severity: string
+  confidence: number
+}
+
+export interface DecisionExecutedPayload {
+  id: string
+  execution_status: ExecutionStatus
+}
+
+export interface AnalysisCompletedPayload {
+  state: CerebroState
+  consolidated_score?: number
+}
+
+export interface CerebroStateChangedPayload {
+  state: CerebroState
+}
+
+export interface AlertRefPayload {
+  id: string
+}
+
+export type WsEvent = WsEnvelope &
+  (
+    | { type: 'source_event.received'; data: Record<string, unknown> }
+    | { type: 'analysis.started'; data: AnalysisStartedPayload }
+    | { type: 'agent_run.started'; data: AgentStartedPayload }
+    | { type: 'agent_run.completed'; data: AgentCompletedPayload }
+    | { type: 'evidence.created'; data: Evidence }
+    | { type: 'risk_case.created'; data: RiskCase }
+    | { type: 'risk_case.updated'; data: RiskUpdatedPayload }
+    | { type: 'alert.created'; data: Alert }
+    | { type: 'alert.acknowledged'; data: AlertRefPayload }
+    | { type: 'alert.resolved'; data: AlertRefPayload }
+    | { type: 'decision.created'; data: LiveDecision }
+    | { type: 'decision.updated'; data: LiveDecision }
+    | { type: 'decision.approved'; data: LiveDecision }
+    | { type: 'decision.rejected'; data: LiveDecision }
+    | { type: 'decision.executed'; data: DecisionExecutedPayload }
+    | { type: 'commitment.status_changed'; data: Commitment }
+    | { type: 'timeline.appended'; data: TimelineEntry }
+    | { type: 'analysis.completed'; data: AnalysisCompletedPayload }
+    | { type: 'cerebro.state_changed'; data: CerebroStateChangedPayload }
+    | { type: 'pong'; data: Record<string, unknown> }
+  )
+
+const WS_EVENT_TYPES: readonly WsEventType[] = [
+  'source_event.received',
+  'analysis.started',
+  'agent_run.started',
+  'agent_run.completed',
+  'evidence.created',
+  'risk_case.created',
+  'risk_case.updated',
+  'alert.created',
+  'alert.acknowledged',
+  'alert.resolved',
+  'decision.created',
+  'decision.approved',
+  'decision.rejected',
+  'decision.updated',
+  'decision.executed',
+  'commitment.status_changed',
+  'timeline.appended',
+  'analysis.completed',
+  'cerebro.state_changed',
+  'pong',
+]
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/**
+ * Valida un mensaje crudo del socket. Devuelve `null` si no es un evento
+ * reconocible, para descartarlo sin romper el reducer.
+ */
+export function parseWsEvent(raw: unknown): WsEvent | null {
+  if (!isRecord(raw)) return null
+  const type = raw.type
+  if (typeof type !== 'string') return null
+  if (!WS_EVENT_TYPES.includes(type as WsEventType)) return null
+
+  const data = isRecord(raw.data) ? raw.data : {}
+
+  // Los eventos cuyo payload el reducer indexa por clave necesitan esa clave
+  switch (type as WsEventType) {
+    case 'agent_run.started':
+    case 'agent_run.completed':
+      if (typeof data.agent !== 'string') return null
+      break
+    case 'alert.acknowledged':
+    case 'alert.resolved':
+    case 'decision.executed':
+      if (typeof data.id !== 'string') return null
+      break
+    case 'decision.created':
+    case 'decision.updated':
+    case 'decision.approved':
+    case 'decision.rejected':
+      if (typeof data.id !== 'string') return null
+      break
+    case 'commitment.status_changed':
+      if (typeof data.id !== 'string') return null
+      break
+    default:
+      break
+  }
+
+  return {
+    type,
+    version: typeof raw.version === 'string' ? raw.version : undefined,
+    occurred_at: typeof raw.occurred_at === 'string' ? raw.occurred_at : undefined,
+    data,
+  } as WsEvent
 }
 
 // Estado del store de análisis
-export type WsConnectionState = 'live' | 'reconnecting' | 'disconnected'
+export type WsConnectionState =
+  | 'live'
+  | 'reconnecting'
+  | 'disconnected'
+  /** Se agotaron los reintentos y el polling: el backend no responde. */
+  | 'offline'
 
 export interface AnalysisStore {
   session: LiveSession | null

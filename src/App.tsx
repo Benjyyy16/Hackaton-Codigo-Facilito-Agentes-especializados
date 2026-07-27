@@ -2,6 +2,7 @@ import { lazy, Suspense, type ReactNode } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
 import { Backdrop } from '@/components/ui/Backdrop'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { AppStoreProvider, useAppStore } from '@/store/AppStore'
 import Landing from '@/pages/Landing'
 
@@ -32,18 +33,40 @@ function RouteFallback() {
   )
 }
 
+/**
+ * Envuelve cada ruta: un fallo de render queda contenido en la vista y el
+ * usuario puede reintentar o volver, en lugar de quedarse con la app en blanco.
+ * La `key` reinicia el boundary al navegar.
+ */
+function Page({ name, children }: { name: string; children: ReactNode }) {
+  return (
+    <ErrorBoundary key={name} label={name}>
+      {children}
+    </ErrorBoundary>
+  )
+}
+
 function Router() {
   const location = useLocation()
   return (
     <Suspense fallback={<RouteFallback />}>
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
-          <Route path="/" element={<Landing />} />
+          <Route
+            path="/"
+            element={
+              <Page name="Landing">
+                <Landing />
+              </Page>
+            }
+          />
           <Route
             path="/app"
             element={
               <Protected>
-                <Dashboard />
+                <Page name="Dashboard">
+                  <Dashboard />
+                </Page>
               </Protected>
             }
           />
@@ -51,7 +74,9 @@ function Router() {
             path="/app/proyecto/:id"
             element={
               <Protected>
-                <ProjectBoard />
+                <Page name="ProjectBoard">
+                  <ProjectBoard />
+                </Page>
               </Protected>
             }
           />
@@ -59,7 +84,9 @@ function Router() {
             path="/perfil"
             element={
               <Protected>
-                <Profile />
+                <Page name="Profile">
+                  <Profile />
+                </Page>
               </Protected>
             }
           />
@@ -67,7 +94,9 @@ function Router() {
             path="/app/datgent"
             element={
               <Protected>
-                <DatgentAnalysis />
+                <Page name="DatgentAnalysis">
+                  <DatgentAnalysis />
+                </Page>
               </Protected>
             }
           />
@@ -75,12 +104,42 @@ function Router() {
             path="/app/datgent/select-repo"
             element={
               <Protected>
-                <RepoSelector />
+                <Page name="RepoSelector">
+                  <RepoSelector />
+                </Page>
               </Protected>
             }
           />
-          <Route path="/login" element={<Login />} />
-          <Route path="/oauth/callback" element={<OAuthCallback />} />
+          <Route
+            path="/login"
+            element={
+              <Page name="Login">
+                <Login />
+              </Page>
+            }
+          />
+          {/*
+            El backend puede redirigir a cualquiera de las dos rutas según cómo
+            esté configurado `FRONTEND_URL` en su callback
+            (`GET /auth/oauth/{provider}/callback`). Ambas apuntan al mismo
+            handler para que el login no se rompa por la barra de más.
+          */}
+          <Route
+            path="/oauth/callback"
+            element={
+              <Page name="OAuthCallback">
+                <OAuthCallback />
+              </Page>
+            }
+          />
+          <Route
+            path="/auth/callback"
+            element={
+              <Page name="OAuthCallback">
+                <OAuthCallback />
+              </Page>
+            }
+          />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AnimatePresence>
@@ -90,9 +149,12 @@ function Router() {
 
 export default function App() {
   return (
-    <AppStoreProvider>
-      <Backdrop />
-      <Router />
-    </AppStoreProvider>
+    // Boundary externo: cubre fallos del propio store o del backdrop
+    <ErrorBoundary label="App">
+      <AppStoreProvider>
+        <Backdrop />
+        <Router />
+      </AppStoreProvider>
+    </ErrorBoundary>
   )
 }

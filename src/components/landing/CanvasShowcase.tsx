@@ -211,7 +211,15 @@ export function CanvasShowcase() {
                       </AnimatePresence>
 
                       {col.id === 'backlog' && (
-                        <button className="group flex items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-ink-200 py-2.5 font-mono text-[10.5px] uppercase tracking-wider text-ink-400 transition-colors hover:border-violet-600 hover:text-violet-700">
+                        // Maqueta de la landing: no ejecuta nada, así que se
+                        // oculta a lectores de pantalla en vez de ofrecer un
+                        // botón sin acción
+                        <button
+                          type="button"
+                          aria-hidden
+                          tabIndex={-1}
+                          className="group flex items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-ink-200 py-2.5 font-mono text-[10.5px] uppercase tracking-wider text-ink-400 transition-colors hover:border-violet-600 hover:text-violet-700"
+                        >
                           <Plus className="h-3 w-3" />
                           pedir a un agente
                         </button>

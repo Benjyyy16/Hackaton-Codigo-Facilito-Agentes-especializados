@@ -1,4 +1,5 @@
 import { authHeaders } from '@/lib/authApi'
+import { requestJson } from '@/lib/http'
 
 const BASE = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:8000'
 
@@ -10,25 +11,26 @@ export interface ProjectRead {
   updated_at: string
 }
 
-export async function listProjects(limit = 20, offset = 0): Promise<ProjectRead[]> {
-  const res = await fetch(`${BASE}/projects?limit=${limit}&offset=${offset}`, {
-    headers: { ...authHeaders() },
+export function listProjects(
+  limit = 20,
+  offset = 0,
+  signal?: AbortSignal,
+): Promise<ProjectRead[]> {
+  return requestJson<ProjectRead[]>(`${BASE}/projects?limit=${limit}&offset=${offset}`, {
+    headers: authHeaders(),
+    signal,
   })
-  if (!res.ok) throw new Error(`GET /projects → ${res.status}`)
-  return res.json()
 }
 
-export async function createProject(name: string, description?: string): Promise<ProjectRead> {
-  const res = await fetch(`${BASE}/projects`, {
+export function createProject(
+  name: string,
+  description?: string,
+  signal?: AbortSignal,
+): Promise<ProjectRead> {
+  return requestJson<ProjectRead>(`${BASE}/projects`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ name, description: description ?? null }),
+    signal,
   })
-  if (!res.ok) {
-    const text = await res.text()
-    let detail = text
-    try { detail = JSON.parse(text)?.detail ?? text } catch { /**/ }
-    throw new Error(detail)
-  }
-  return res.json()
 }

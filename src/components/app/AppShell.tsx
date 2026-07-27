@@ -160,23 +160,67 @@ export function AppShell({
       {/* ================= Contenido ================= */}
       <div className="min-w-0 flex-1">
         {/* barra móvil */}
-        <div className="sticky top-0 z-40 flex h-[58px] items-center justify-between border-b-2 border-ink-900 bg-paper/95 px-4 backdrop-blur-md lg:hidden">
-          <Link to="/app" className="flex items-center gap-2">
-            <OrquestaMark className="h-7 w-7" />
-            <span className="text-[14.5px] font-extrabold text-ink-900">Orquesta</span>
-          </Link>
-          <div className="flex items-center gap-2">
-            {user?.isDemo && (
-              <span className="rounded border-2 border-violet-600 bg-violet-50 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase text-violet-700">
-                demo
-              </span>
-            )}
-            {user && (
-              <Link to="/perfil" className="rounded-full border-2 border-ink-900">
-                <Avatar name={user.name} hue={user.avatarHue} size={28} ring={false} />
-              </Link>
-            )}
+        <div className="sticky top-0 z-40 border-b-2 border-ink-900 bg-paper/95 backdrop-blur-md lg:hidden">
+          <div className="flex h-[58px] items-center justify-between px-4">
+            <Link to="/app" className="flex items-center gap-2">
+              <OrquestaMark className="h-7 w-7" />
+              <span className="text-[14.5px] font-extrabold text-ink-900">Orquesta</span>
+            </Link>
+            <div className="flex items-center gap-2">
+              {user?.isDemo && (
+                <span className="rounded border-2 border-violet-600 bg-violet-50 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase text-violet-700">
+                  demo
+                </span>
+              )}
+              {user && (
+                <Link to="/perfil" aria-label="Ver perfil" className="rounded-full border-2 border-ink-900">
+                  <Avatar name={user.name} hue={user.avatarHue} size={28} ring={false} />
+                </Link>
+              )}
+              {onNewProject && (
+                <button
+                  onClick={onNewProject}
+                  aria-label="Nuevo proyecto"
+                  className="grid h-7 w-7 place-items-center rounded border-2 border-ink-900 bg-paper text-ink-900"
+                >
+                  <Plus className="h-3.5 w-3.5" aria-hidden />
+                </button>
+              )}
+            </div>
           </div>
+
+          {/* Navegación principal en móvil: el sidebar está oculto en este breakpoint */}
+          <nav className="flex items-center gap-1.5 overflow-x-auto px-4 pb-2" aria-label="Secciones">
+            <NavLink
+              to="/app"
+              end
+              className={({ isActive }) =>
+                cn(
+                  'flex shrink-0 items-center gap-1.5 rounded-lg border-2 px-2.5 py-1.5 font-mono text-[10.5px] font-bold uppercase tracking-wider transition-colors',
+                  isActive
+                    ? 'border-ink-900 bg-violet-600 text-white'
+                    : 'border-ink-200 text-ink-600',
+                )
+              }
+            >
+              <LayoutGrid className="h-3.5 w-3.5" aria-hidden />
+              Tableros
+            </NavLink>
+            <NavLink
+              to="/app/datgent"
+              className={({ isActive }) =>
+                cn(
+                  'flex shrink-0 items-center gap-1.5 rounded-lg border-2 px-2.5 py-1.5 font-mono text-[10.5px] font-bold uppercase tracking-wider transition-colors',
+                  isActive
+                    ? 'border-ink-900 bg-violet-600 text-white'
+                    : 'border-ink-200 text-ink-600',
+                )
+              }
+            >
+              <Brain className="h-3.5 w-3.5" aria-hidden />
+              Datgent
+            </NavLink>
+          </nav>
         </div>
 
         <motion.div

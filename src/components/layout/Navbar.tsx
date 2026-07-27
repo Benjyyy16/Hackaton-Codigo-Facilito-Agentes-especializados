@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { AnimatePresence, motion, useMotionValueEvent, useScroll } from 'framer-motion'
 import { Link, useNavigate } from 'react-router-dom'
 import { LayoutGrid, Menu, PlayCircle, X } from 'lucide-react'
@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { OrquestaMark } from '@/components/brand/Logos'
 import { Avatar } from '@/components/ui/Avatar'
 import { useAppStore } from '@/store/AppStore'
+import { useFocusTrap } from '@/hooks/useFocusTrap'
 import { cn } from '@/lib/cn'
 
 const links = [
@@ -31,12 +32,25 @@ export function Navbar({
 
   useMotionValueEvent(scrollY, 'change', (v) => setScrolled(v > 20))
 
+  const closeMobile = useCallback(() => setMobileOpen(false), [])
+  /** El menú móvil ocupa toda la pantalla: se comporta como un diálogo. */
+  const mobileRef = useFocusTrap<HTMLDivElement>(mobileOpen)
+
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? 'hidden' : ''
     return () => {
       document.body.style.overflow = ''
     }
   }, [mobileOpen])
+
+  useEffect(() => {
+    if (!mobileOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeMobile()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [mobileOpen, closeMobile])
 
   return (
     <>
@@ -122,10 +136,12 @@ export function Navbar({
 
               <button
                 onClick={() => setMobileOpen(true)}
-                aria-label="Abrir menú"
+                aria-label="Abrir menú de navegación"
+                aria-expanded={mobileOpen}
+                aria-controls="mobile-menu"
                 className="grid h-9 w-9 place-items-center rounded-lg border-2 border-ink-900 bg-paper text-ink-900 transition hover:bg-violet-100 lg:hidden"
               >
-                <Menu className="h-4 w-4" />
+                <Menu className="h-4 w-4" aria-hidden />
               </button>
             </div>
           </div>
@@ -142,12 +158,17 @@ export function Navbar({
       <AnimatePresence>
         {mobileOpen && (
           <motion.div
+            ref={mobileRef}
+            id="mobile-menu"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Menú de navegación"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[60] bg-paper lg:hidden"
+            className="fixed inset-0 z-[60] overflow-y-auto bg-paper lg:hidden"
           >
-            <div className="absolute inset-0 bg-grid bg-grid opacity-60" />
+            <div className="absolute inset-0 bg-grid bg-grid opacity-60" aria-hidden />
 
             <div className="container-page relative flex h-[66px] items-center justify-between border-b-2 border-ink-900">
               <span className="flex items-center gap-2.5">
@@ -155,20 +176,20 @@ export function Navbar({
                 <span className="text-[16.5px] font-extrabold text-ink-900">Datgent</span>
               </span>
               <button
-                onClick={() => setMobileOpen(false)}
+                onClick={closeMobile}
                 aria-label="Cerrar menú"
                 className="grid h-9 w-9 place-items-center rounded-lg border-2 border-ink-900 bg-paper text-ink-900"
               >
-                <X className="h-4 w-4" />
+                <X className="h-4 w-4" aria-hidden />
               </button>
             </div>
 
-            <nav className="container-page relative mt-8 flex flex-col gap-2">
+            <nav className="container-page relative mt-8 flex flex-col gap-2 pb-10">
               {links.map((l, i) => (
                 <motion.a
                   key={l.href}
                   href={l.href}
-                  onClick={() => setMobileOpen(false)}
+                  onClick={closeMobile}
                   initial={{ opacity: 0, x: -24 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: i * 0.06 }}
@@ -185,7 +206,7 @@ export function Navbar({
                     size="lg"
                     fullWidth
                     onClick={() => {
-                      setMobileOpen(false)
+                      closeMobile()
                       navigate('/app')
                     }}
                   >
@@ -197,7 +218,7 @@ export function Navbar({
                       size="lg"
                       fullWidth
                       onClick={() => {
-                        setMobileOpen(false)
+                        closeMobile()
                         onOpenAuth('login')
                       }}
                     >
@@ -208,7 +229,7 @@ export function Navbar({
                       variant="paper"
                       fullWidth
                       onClick={() => {
-                        setMobileOpen(false)
+                        closeMobile()
                         onDemo()
                       }}
                     >

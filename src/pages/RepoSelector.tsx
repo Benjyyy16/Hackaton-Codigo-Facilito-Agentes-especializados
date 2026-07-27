@@ -1,167 +1,239 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { GitBranch, Search, Loader2, AlertCircle, Play } from 'lucide-react'
+import { GitBranch, Search, AlertCircle, Play, Zap } from 'lucide-react'
 import { listUserRepos, type GitHubRepo } from '@/lib/githubApi'
 import { startAnalysisFromRepo } from '@/lib/analysisApi'
 import { Button } from '@/components/ui/Button'
+import { LoadingRegion, RepoRowSkeleton } from '@/components/ui/Skeleton'
+import { errorMessage, isAbortError, isHttpError } from '@/lib/http'
 
 export default function RepoSelector() {
   const [repos, setRepos] = useState<GitHubRepo[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  /** `true` cuando el backend no expone repos (GitHub sin conectar). */
+  const [reposUnavailable, setReposUnavailable] = useState(false)
   const [search, setSearch] = useState('')
   const [starting, setStarting] = useState<string | null>(null)
   const navigate = useNavigate()
 
+  /** Cancela el arranque anterior si el usuario elige otro repo. */
+  const startAbortRef = useRef<AbortController | null>(null)
+
   useEffect(() => {
-    async function load() {
-      try {
-        const data = await listUserRepos()
+    const controller = new AbortController()
+
+    listUserRepos(controller.signal)
+      .then((data) => {
+        if (controller.signal.aborted) return
         setRepos(data)
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Error cargando repositorios')
-      } finally {
         setLoading(false)
-      }
-    }
-    load()
+      })
+      .catch((err: unknown) => {
+        if (controller.signal.aborted || isAbortError(err)) return
+        // 404/503 = la instancia no tiene el proxy de GitHub disponible:
+        // no es un error del usuario, así que se ofrece el caso demo
+        if (isHttpError(err) && [404, 501, 503].includes(err.status)) {
+          setReposUnavailable(true)
+        } else {
+          setError(errorMessage(err, 'Error cargando repositorios'))
+        }
+        setLoading(false)
+      })
+
+    return () => controller.abort()
   }, [])
 
-  async function handleSelectRepo(repo: GitHubRepo) {
-    setStarting(repo.full_name)
-    try {
-      const { session_id } = await startAnalysisFromRepo(repo)
-      navigate(`/app/datgent?session=${session_id}`, { replace: true })
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Error iniciando análisis')
-      setStarting(null)
-    }
-  }
+  useEffect(() => () => startAbortRef.current?.abort(), [])
 
-  const filtered = repos.filter(r =>
-    r.full_name.toLowerCase().includes(search.toLowerCase()) ||
-    (r.description && r.description.toLowerCase().includes(search.toLowerCase()))
+  const launch = useCallback(
+    async (repo: GitHubRepo | null) => {
+      startAbortRef.current?.abort()
+      const controller = new AbortController()
+      startAbortRef.current = controller
+
+      setStarting(repo?.full_name ?? '__demo__')
+      setError(null)
+      try {
+        const target = repo ?? {
+          full_name: 'datgent/demo',
+          description: 'Caso de demostración del análisis multiagente',
+          default_branch: 'main',
+          language: null,
+        }
+        const { session_id } = await startAnalysisFromRepo(target, { signal: controller.signal })
+        navigate(`/app/datgent?session=${session_id}`, { replace: true })
+      } catch (err: unknown) {
+        if (isAbortError(err)) return
+        setError(errorMessage(err, 'Error iniciando análisis'))
+        setStarting(null)
+      }
+    },
+    [navigate],
   )
 
-  if (loading) {
-    return (
-      <div className="grid min-h-screen place-items-center bg-ink-50">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
-          <p className="text-sm text-ink-600">Cargando repositorios...</p>
-        </div>
-      </div>
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return repos
+    return repos.filter(
+      (r) =>
+        r.full_name.toLowerCase().includes(q) ||
+        (r.description ? r.description.toLowerCase().includes(q) : false),
     )
-  }
-
-  if (error) {
-    return (
-      <div className="grid min-h-screen place-items-center bg-ink-50 px-4">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-md rounded-xl border-2 border-red-200 bg-red-50 p-6"
-        >
-          <div className="flex items-center gap-3">
-            <AlertCircle className="h-5 w-5 shrink-0 text-red-600" />
-            <div>
-              <p className="text-sm font-bold text-red-900">Error</p>
-              <p className="mt-1 text-xs text-red-700">{error}</p>
-            </div>
-          </div>
-          <button
-            onClick={() => navigate('/app')}
-            className="mt-4 w-full rounded-lg bg-red-600 px-4 py-2 text-sm text-white transition-colors hover:bg-red-500"
-          >
-            Volver al dashboard
-          </button>
-        </motion.div>
-      </div>
-    )
-  }
+  }, [repos, search])
 
   return (
-    <div className="min-h-screen bg-ink-50 px-4 py-12">
+    <div className="min-h-screen bg-ink-50 px-4 py-8 sm:py-12">
       <div className="mx-auto w-full max-w-4xl">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="font-display text-3xl text-ink-900">Selecciona un repositorio</h1>
-          <p className="mt-2 text-sm text-ink-600">
+          <h1 className="font-display text-[26px] leading-tight text-ink-900 sm:text-3xl">
+            Selecciona un repositorio
+          </h1>
+          <p className="mt-2 text-[13px] text-ink-600 sm:text-sm">
             Datgent analizará riesgos y compromisos en el repositorio seleccionado
           </p>
         </motion.div>
 
-        {/* Buscador */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="mt-6"
-        >
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar repositorio..."
-              className="w-full rounded-xl border-2 border-ink-200 bg-white py-3 pl-11 pr-4 text-sm text-ink-900 placeholder:text-ink-400 focus:border-violet-500 focus:outline-none"
-            />
+        {/* Error accionable, sin sacar al usuario de la pantalla */}
+        {error && (
+          <div
+            role="alert"
+            className="mt-5 flex flex-col gap-3 rounded-xl border-2 border-rose-200 bg-rose-50 p-4 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div className="flex min-w-0 items-start gap-3">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-rose-600" aria-hidden />
+              <p className="min-w-0 break-words text-[12.5px] text-rose-800">{error}</p>
+            </div>
+            <button
+              onClick={() => navigate('/app')}
+              className="shrink-0 rounded-lg border-2 border-rose-300 bg-white px-3 py-1.5 text-[12.5px] font-semibold text-rose-700 transition hover:border-rose-600"
+            >
+              Volver al dashboard
+            </button>
           </div>
-        </motion.div>
+        )}
 
-        {/* Lista de repos */}
+        {/* GitHub no disponible en esta instancia → camino demo */}
+        {reposUnavailable && !loading && (
+          <div className="mt-5 rounded-xl border-2 border-clay-300 bg-clay-100 p-4">
+            <p className="text-[13px] font-bold text-clay-700">
+              Esta instancia no tiene GitHub conectado
+            </p>
+            <p className="mt-1 text-[12.5px] leading-relaxed text-clay-700">
+              El backend no expone la lista de repositorios. Podés ejecutar el ciclo completo con el
+              caso de demostración.
+            </p>
+            <div className="mt-3">
+              <Button
+                size="sm"
+                onClick={() => void launch(null)}
+                loading={starting === '__demo__'}
+                disabled={starting !== null}
+              >
+                <Zap className="h-3.5 w-3.5" aria-hidden />
+                Analizar caso demo
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Buscador */}
+        {!reposUnavailable && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="mt-6"
+          >
+            <div className="relative">
+              <Search
+                className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400"
+                aria-hidden
+              />
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar repositorio…"
+                aria-label="Buscar repositorio"
+                disabled={loading}
+                className="w-full rounded-xl border-2 border-ink-200 bg-white py-3 pl-11 pr-4 text-sm text-ink-900 placeholder:text-ink-400 focus:border-violet-500 focus:outline-none disabled:opacity-60"
+              />
+            </div>
+          </motion.div>
+        )}
+
+        {/* Lista */}
         <div className="mt-6 space-y-3">
-          {filtered.length === 0 ? (
+          {loading ? (
+            <LoadingRegion label="Cargando repositorios">
+              <div className="space-y-3">
+                {Array.from({ length: 4 }, (_, i) => (
+                  <RepoRowSkeleton key={i} />
+                ))}
+              </div>
+            </LoadingRegion>
+          ) : reposUnavailable ? null : filtered.length === 0 ? (
             <p className="rounded-xl border-2 border-dashed border-ink-200 py-12 text-center text-sm text-ink-400">
               {search ? 'No se encontraron repositorios' : 'No tienes repositorios'}
             </p>
           ) : (
-            filtered.map((repo, i) => (
-              <motion.div
-                key={repo.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.15 + i * 0.05 }}
-                className="group relative overflow-hidden rounded-xl border-2 border-ink-200 bg-white shadow-sm transition-all hover:border-violet-500 hover:shadow-md"
-              >
-                <div className="flex items-center justify-between gap-4 p-4">
-                  <div className="flex min-w-0 flex-1 items-start gap-3">
-                    <div className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg border-2 border-ink-900 bg-paper">
-                      <GitBranch className="h-4 w-4 text-ink-700" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold text-ink-900">{repo.full_name}</p>
-                      {repo.description && (
-                        <p className="mt-0.5 line-clamp-1 text-xs text-ink-600">{repo.description}</p>
-                      )}
-                      <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[10px]">
-                        {repo.language && (
-                          <span className="rounded border border-ink-300 bg-ink-50 px-1.5 py-0.5 font-mono text-ink-700">
-                            {repo.language}
-                          </span>
+            <ul className="space-y-3">
+              {filtered.map((repo, i) => (
+                <motion.li
+                  key={repo.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  // El escalonado se corta pronto: con 50 repos la última fila
+                  // tardaría segundos en aparecer
+                  transition={{ delay: 0.15 + Math.min(i, 8) * 0.05 }}
+                  className="group relative overflow-hidden rounded-xl border-2 border-ink-200 bg-white shadow-sm transition-all hover:border-violet-500 hover:shadow-md"
+                >
+                  <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                    <div className="flex min-w-0 flex-1 items-start gap-3">
+                      <div className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg border-2 border-ink-900 bg-paper">
+                        <GitBranch className="h-4 w-4 text-ink-700" aria-hidden />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-bold text-ink-900">{repo.full_name}</p>
+                        {repo.description && (
+                          <p className="mt-0.5 line-clamp-2 text-xs text-ink-600">
+                            {repo.description}
+                          </p>
                         )}
-                        {repo.private && (
-                          <span className="rounded border border-clay-400 bg-clay-100 px-1.5 py-0.5 font-mono text-clay-700">
-                            PRIVATE
+                        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[10px]">
+                          {repo.language && (
+                            <span className="rounded border border-ink-300 bg-ink-50 px-1.5 py-0.5 font-mono text-ink-700">
+                              {repo.language}
+                            </span>
+                          )}
+                          {repo.private && (
+                            <span className="rounded border border-clay-400 bg-clay-100 px-1.5 py-0.5 font-mono text-clay-700">
+                              PRIVATE
+                            </span>
+                          )}
+                          <span className="font-mono text-ink-400">
+                            ⭐ {repo.stargazers_count}
                           </span>
-                        )}
-                        <span className="font-mono text-ink-400">⭐ {repo.stargazers_count}</span>
+                        </div>
                       </div>
                     </div>
+                    <Button
+                      size="sm"
+                      className="w-full sm:w-auto"
+                      onClick={() => void launch(repo)}
+                      loading={starting === repo.full_name}
+                      disabled={starting !== null}
+                      aria-label={`Analizar ${repo.full_name}`}
+                    >
+                      <Play className="h-3.5 w-3.5" aria-hidden />
+                      Analizar
+                    </Button>
                   </div>
-                  <Button
-                    size="sm"
-                    onClick={() => handleSelectRepo(repo)}
-                    loading={starting === repo.full_name}
-                    disabled={starting !== null}
-                  >
-                    <Play className="h-3.5 w-3.5" />
-                    Analizar
-                  </Button>
-                </div>
-              </motion.div>
-            ))
+                </motion.li>
+              ))}
+            </ul>
           )}
         </div>
       </div>

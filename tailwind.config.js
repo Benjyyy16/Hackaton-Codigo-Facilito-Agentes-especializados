@@ -25,6 +25,7 @@ export default {
           300: '#BDB8CC',
           200: '#DDD9E6',
           100: '#EDEBF2',
+          50: '#F6F5F9',
         },
         // Morado: acento, no fondo
         violet: {
@@ -53,9 +54,13 @@ export default {
         },
         // Ámbar para advertencias del ledger
         clay: {
+          50: '#FFFAF2',
           100: '#FFF3E0',
+          200: '#FFE3BC',
           300: '#FFCF8A',
+          400: '#F7B863',
           500: '#F0A03C',
+          600: '#CE8420',
           700: '#B36B12',
         },
       },

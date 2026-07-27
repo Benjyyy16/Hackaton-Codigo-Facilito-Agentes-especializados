@@ -182,9 +182,22 @@ export function Typewriter({
   const [text, setText] = useState('')
   const [line, setLine] = useState(0)
 
+  /**
+   * `lines` suele venir como literal en el JSX, así que su identidad cambia en
+   * cada render del padre. Dependiendo del array se reiniciaba la animación una
+   * y otra vez; se depende del contenido y el valor se lee de un ref.
+   */
+  const linesKey = lines.join('\u0000')
+  const linesRef = useRef(lines)
+  useEffect(() => {
+    linesRef.current = lines
+  }, [lines])
+
   useEffect(() => {
     if (!inView) return
-    const full = lines[line % lines.length]
+    const all = linesRef.current
+    if (all.length === 0) return
+    const full = all[line % all.length]
     let i = 0
     let hold: number | undefined
     let erase: number | undefined
@@ -213,7 +226,7 @@ export function Typewriter({
       if (hold) window.clearTimeout(hold)
       if (erase) window.clearInterval(erase)
     }
-  }, [inView, line, lines, speed, holdMs])
+  }, [inView, line, linesKey, speed, holdMs])
 
   return (
     <span ref={ref} className={className}>

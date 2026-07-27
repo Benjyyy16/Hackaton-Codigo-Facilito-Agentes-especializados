@@ -4,6 +4,7 @@ import { Check, FolderPlus, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { GitHubLogo } from '@/components/brand/Logos'
 import { useAppStore } from '@/store/AppStore'
+import { useFocusTrap } from '@/hooks/useFocusTrap'
 import { cn } from '@/lib/cn'
 
 /** Repos que devolvería la API de GitHub tras el OAuth. */
@@ -28,6 +29,8 @@ export function NewProjectModal({
   const [description, setDescription] = useState('')
   const [repo, setRepo] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  /** Mantiene el foco dentro del modal y lo devuelve al cerrar. */
+  const dialogRef = useFocusTrap<HTMLDivElement>(open)
 
   useEffect(() => {
     if (!open) {
@@ -72,9 +75,10 @@ export function NewProjectModal({
             className="absolute inset-0 cursor-default bg-ink-900/45 backdrop-blur-sm"
           />
           <motion.div
+            ref={dialogRef}
             role="dialog"
             aria-modal="true"
-            aria-label="Nuevo proyecto"
+            aria-labelledby="np-title"
             initial={{ opacity: 0, y: 26, scale: 0.97, rotate: -1 }}
             animate={{ opacity: 1, y: 0, scale: 1, rotate: 0 }}
             exit={{ opacity: 0, y: 16, scale: 0.98 }}
@@ -97,7 +101,10 @@ export function NewProjectModal({
                   <FolderPlus className="h-5 w-5 text-white" />
                 </span>
                 <div>
-                  <h2 className="font-display text-[23px] leading-none tracking-tightest text-ink-900">
+                  <h2
+                    id="np-title"
+                    className="font-display text-[23px] leading-none tracking-tightest text-ink-900"
+                  >
                     Nuevo proyecto
                   </h2>
                   <p className="mt-1 text-[12.5px] text-ink-500">

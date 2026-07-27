@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { memo, useId, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { CheckCircle, XCircle, RotateCcw, User } from 'lucide-react'
+import { CheckCircle, XCircle, User } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { Button } from '@/components/ui/Button'
 import type { LiveDecision } from '@/store/analysisTypes'
@@ -17,10 +17,16 @@ interface DecisionCardProps {
   onReject: (id: string, by: string, reason: string) => Promise<void>
 }
 
-function DecisionCard({ decision, onApprove, onReject }: DecisionCardProps) {
+/** Memoizada: aprobar una decisión no re-renderiza las demás tarjetas. */
+const DecisionCard = memo(function DecisionCard({
+  decision,
+  onApprove,
+  onReject,
+}: DecisionCardProps) {
   const [loading, setLoading] = useState(false)
   const [mode, setMode] = useState<'idle' | 'reject'>('idle')
   const [reason, setReason] = useState('')
+  const reasonId = useId()
 
   const isPending = decision.approval_status === 'pending'
   const isApproved = decision.approval_status === 'approved'
@@ -120,8 +126,9 @@ function DecisionCard({ decision, onApprove, onReject }: DecisionCardProps) {
                     variant="mint"
                     loading={loading}
                     onClick={handleApprove}
+                    aria-label={`Aprobar: ${decision.title}`}
                   >
-                    <CheckCircle className="h-3.5 w-3.5" />
+                    <CheckCircle className="h-3.5 w-3.5" aria-hidden />
                     Aprobar
                   </Button>
                   <Button
@@ -129,30 +136,26 @@ function DecisionCard({ decision, onApprove, onReject }: DecisionCardProps) {
                     variant="outline"
                     onClick={() => setMode('reject')}
                     disabled={loading}
+                    aria-label={`Rechazar: ${decision.title}`}
                   >
-                    <XCircle className="h-3.5 w-3.5" />
+                    <XCircle className="h-3.5 w-3.5" aria-hidden />
                     Rechazar
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={loading}
-                    onClick={() => { /* re-análisis: caller puede implementar */ }}
-                  >
-                    <RotateCcw className="h-3.5 w-3.5" />
-                    Nuevo análisis
                   </Button>
                 </div>
               ) : (
                 <div className="space-y-2">
+                  <label htmlFor={reasonId} className="label-mono block text-ink-500">
+                    Motivo del rechazo
+                  </label>
                   <textarea
+                    id={reasonId}
                     className="w-full rounded-lg border-2 border-ink-300 bg-paper px-3 py-2 font-sans text-[12.5px] text-ink-900 placeholder-ink-400 focus:border-ink-700 focus:outline-none"
                     rows={2}
                     placeholder="Motivo del rechazo…"
                     value={reason}
                     onChange={(e) => setReason(e.target.value)}
                   />
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <Button
                       size="sm"
                       variant="ink"
@@ -165,7 +168,10 @@ function DecisionCard({ decision, onApprove, onReject }: DecisionCardProps) {
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => { setMode('idle'); setReason('') }}
+                      onClick={() => {
+                        setMode('idle')
+                        setReason('')
+                      }}
                     >
                       Cancelar
                     </Button>
@@ -196,7 +202,7 @@ function DecisionCard({ decision, onApprove, onReject }: DecisionCardProps) {
       )}
     </motion.div>
   )
-}
+})
 
 export function DecisionPanel({ decisions, onApprove, onReject }: DecisionPanelProps) {
   if (decisions.length === 0) {

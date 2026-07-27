@@ -1,48 +1,75 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { AlertCircle, Check } from 'lucide-react'
 import { useAppStore } from '@/store/AppStore'
-import { getMe, storeToken } from '@/lib/authApi'
+import { clearToken, getMe, storeToken } from '@/lib/authApi'
+import { errorMessage, isAbortError } from '@/lib/http'
 
+/**
+ * Recibe los tokens del callback OAuth del backend
+ * (`GET /auth/oauth/{provider}/callback`, que redirige acá).
+ *
+ * Se aceptan tanto `?access_token=` como `#access_token=`: algunos flujos
+ * devuelven los tokens en el fragmento para que no queden en los logs del
+ * servidor. También se aceptan las dos rutas registradas en el router
+ * (`/oauth/callback` y `/auth/callback`).
+ */
 export default function OAuthCallback() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const { setUser } = useAppStore()
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    async function handleCallback() {
-      const token = searchParams.get('access_token')
-      const errorParam = searchParams.get('error')
+  const readParam = useCallback(
+    (name: string): string | null => {
+      const fromQuery = searchParams.get(name)
+      if (fromQuery) return fromQuery
+      const hash = window.location.hash.replace(/^#/, '')
+      if (!hash) return null
+      return new URLSearchParams(hash).get(name)
+    },
+    [searchParams],
+  )
 
+  useEffect(() => {
+    const controller = new AbortController()
+
+    async function handleCallback() {
+      const errorParam = readParam('error') ?? readParam('error_description')
       if (errorParam) {
         setError(errorParam)
         return
       }
 
+      const token = readParam('access_token') ?? readParam('token')
       if (!token) {
         setError('No se recibió token de autenticación')
         return
       }
 
+      const refreshToken = readParam('refresh_token') ?? undefined
+      const expiresInRaw = readParam('expires_in')
+      const expiresIn = expiresInRaw ? Number.parseInt(expiresInRaw, 10) : undefined
+
+      storeToken(token, Number.isFinite(expiresIn) ? expiresIn : undefined, refreshToken)
+
       try {
-        // Guardar token
-        storeToken(token)
-
-        // Obtener user info
-        const me = await getMe(token)
-        setUser({ id: me.id, name: me.name, email: me.email, avatar: '' })
-
-        // Navegar a selector de repo
+        const me = await getMe(token, controller.signal)
+        setUser({ id: me.id, name: me.name, email: me.email })
         navigate('/app/datgent/select-repo', { replace: true })
-      } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : 'Error al autenticar')
+      } catch (err) {
+        if (isAbortError(err)) return
+        // El token no sirvió: no dejarlo guardado para que no ensucie las
+        // siguientes requests con un Bearer inválido
+        clearToken()
+        setError(errorMessage(err, 'Error al autenticar'))
       }
     }
 
-    handleCallback()
-  }, [searchParams, setUser, navigate])
+    void handleCallback()
+    return () => controller.abort()
+  }, [readParam, setUser, navigate])
 
   if (error) {
     return (
@@ -50,20 +77,21 @@ export default function OAuthCallback() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="w-full max-w-sm rounded-xl border-2 border-red-800 bg-red-900/20 p-6"
+          role="alert"
+          className="w-full max-w-sm rounded-xl border-2 border-rose-800 bg-rose-900/20 p-6"
         >
-          <div className="flex items-center gap-3">
-            <AlertCircle className="h-5 w-5 shrink-0 text-red-400" />
-            <div>
-              <p className="text-sm font-bold text-red-200">Error de autenticación</p>
-              <p className="mt-1 text-xs text-red-300">{error}</p>
+          <div className="flex items-start gap-3">
+            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-rose-400" aria-hidden />
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-rose-200">Error de autenticación</p>
+              <p className="mt-1 break-words text-xs text-rose-300">{error}</p>
             </div>
           </div>
           <button
-            onClick={() => navigate('/login')}
-            className="mt-4 w-full rounded-lg bg-red-600 px-4 py-2 text-sm text-white transition-colors hover:bg-red-500"
+            onClick={() => navigate('/login', { replace: true })}
+            className="mt-4 w-full rounded-lg bg-rose-600 px-4 py-2 text-sm text-white transition-colors hover:bg-rose-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300"
           >
-            Reintentar
+            Volver a intentar
           </button>
         </motion.div>
       </div>
@@ -76,13 +104,15 @@ export default function OAuthCallback() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         className="flex flex-col items-center gap-4"
+        role="status"
+        aria-live="polite"
       >
         <div className="grid h-16 w-16 place-items-center rounded-full border-2 border-violet-500 bg-violet-900/20">
-          <Check className="h-8 w-8 text-violet-400" />
+          <Check className="h-8 w-8 text-violet-400" aria-hidden />
         </div>
         <div className="text-center">
           <p className="text-sm font-bold text-ink-100">Autenticación exitosa</p>
-          <p className="mt-1 text-xs text-ink-400">Redirigiendo...</p>
+          <p className="mt-1 text-xs text-ink-400">Redirigiendo…</p>
         </div>
         <span className="h-1 w-32 animate-pulse rounded-full bg-violet-500/30" />
       </motion.div>

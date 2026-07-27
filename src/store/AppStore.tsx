@@ -9,6 +9,8 @@ import {
 } from 'react'
 import type { Collaborator, Project, Task, TaskStatus, User } from './types'
 import { seedCollaborators, seedProjects } from './seed'
+import { readJson, removeItem, writeJson } from '@/lib/storage'
+import { clearToken, isTokenExpired, msUntilExpiry, onSessionExpired } from '@/lib/authApi'
 
 const STORAGE_KEY = 'orquesta.session.v1'
 
@@ -22,6 +24,9 @@ interface AppStore {
   user: User | null
   projects: Project[]
   collaborators: Collaborator[]
+  /** Aviso de sesión cerrada automáticamente (token vencido). */
+  sessionNotice: string | null
+  dismissSessionNotice: () => void
   signIn: (email: string, provider?: 'password' | 'google') => void
   signUp: (input: { name: string; email: string }) => void
   /** Entra con la cuenta demo sin pasar por el formulario */
@@ -49,26 +54,58 @@ function nameFromEmail(email: string) {
 
 export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY)
-      return raw ? (JSON.parse(raw) as User) : null
-    } catch {
+    // Sesión guardada con token ya vencido: no se restaura
+    if (isTokenExpired()) {
+      clearToken()
+      removeItem(STORAGE_KEY)
       return null
     }
+    return readJson<User>(STORAGE_KEY)
   })
   const [projects, setProjects] = useState<Project[]>(seedProjects)
   const [collaborators, setCollaborators] = useState<Collaborator[]>(seedCollaborators)
+  /** Mensaje para avisar que la sesión se cerró sola. */
+  const [sessionNotice, setSessionNotice] = useState<string | null>(null)
 
   useEffect(() => {
-    try {
-      if (user) localStorage.setItem(STORAGE_KEY, JSON.stringify(user))
-      else localStorage.removeItem(STORAGE_KEY)
-    } catch {
-      /* almacenamiento no disponible */
+    if (user) writeJson(STORAGE_KEY, user)
+    else removeItem(STORAGE_KEY)
+  }, [user])
+
+  // ── Logout automático al expirar el token ─────────────────────────
+  // Dos vías: el aviso que emite `authApi` cuando una request detecta el
+  // vencimiento, y un temporizador para cuando el usuario está inactivo.
+
+  useEffect(() => {
+    return onSessionExpired(() => {
+      setUser((current) => {
+        if (!current || current.isDemo) return current
+        setSessionNotice('Tu sesión expiró. Iniciá sesión de nuevo.')
+        return null
+      })
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!user || user.isDemo) return
+    const remaining = msUntilExpiry()
+    if (remaining === null) return
+    if (remaining <= 0) {
+      clearToken()
+      setSessionNotice('Tu sesión expiró. Iniciá sesión de nuevo.')
+      setUser(null)
+      return
     }
+    const id = setTimeout(() => {
+      clearToken()
+      setSessionNotice('Tu sesión expiró. Iniciá sesión de nuevo.')
+      setUser(null)
+    }, remaining)
+    return () => clearTimeout(id)
   }, [user])
 
   const signInDemo = useCallback(() => {
+    setSessionNotice(null)
     setUser({
       id: 'u_demo',
       name: 'Ramón Ortega',
@@ -83,6 +120,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback(
     (email: string, provider: 'password' | 'google' = 'password') => {
+      setSessionNotice(null)
       if (email.trim().toLowerCase() === DEMO_CREDENTIALS.email) {
         signInDemo()
         return
@@ -101,6 +139,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   )
 
   const signUp = useCallback(({ name, email }: { name: string; email: string }) => {
+    setSessionNotice(null)
     setUser({
       id: uid('u_'),
       name: name.trim() || nameFromEmail(email),
@@ -114,11 +153,15 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(() => {
     setUser(null)
-    try { localStorage.removeItem('datgent_token') } catch { /**/ }
+    setSessionNotice(null)
+    clearToken()
   }, [])
+
+  const dismissSessionNotice = useCallback(() => setSessionNotice(null), [])
 
   const setUserFromAuth = useCallback(
     (input: { id: string; name: string; email: string; avatar?: string }) => {
+      setSessionNotice(null)
       setUser({
         id: input.id,
         name: input.name,
@@ -258,6 +301,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       user,
       projects,
       collaborators,
+      sessionNotice,
+      dismissSessionNotice,
       signIn,
       signUp,
       signInDemo,
@@ -276,6 +321,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       user,
       projects,
       collaborators,
+      sessionNotice,
+      dismissSessionNotice,
       signIn,
       signUp,
       signInDemo,
