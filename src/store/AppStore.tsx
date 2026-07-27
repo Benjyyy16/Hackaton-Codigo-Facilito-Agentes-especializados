@@ -27,6 +27,7 @@ interface AppStore {
   /** Entra con la cuenta demo sin pasar por el formulario */
   signInDemo: () => void
   signOut: () => void
+  setUser: (input: { id: string; name: string; email: string; avatar?: string }) => void
   updateProfile: (patch: Partial<Pick<User, 'name' | 'specialty' | 'title'>>) => void
   createProject: (input: { name: string; description: string; repoFullName?: string }) => Project
   deleteProject: (id: string) => void
@@ -111,7 +112,25 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
-  const signOut = useCallback(() => setUser(null), [])
+  const signOut = useCallback(() => {
+    setUser(null)
+    try { localStorage.removeItem('datgent_token') } catch { /**/ }
+  }, [])
+
+  const setUserFromAuth = useCallback(
+    (input: { id: string; name: string; email: string; avatar?: string }) => {
+      setUser({
+        id: input.id,
+        name: input.name,
+        email: input.email,
+        specialty: '',
+        title: '',
+        avatarHue: 265,
+        provider: 'password',
+      })
+    },
+    [],
+  )
 
   const updateProfile = useCallback((patch: Partial<User>) => {
     setUser((u) => (u ? { ...u, ...patch } : u))
@@ -243,6 +262,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       signUp,
       signInDemo,
       signOut,
+      setUser: setUserFromAuth,
       updateProfile,
       createProject,
       deleteProject,
@@ -260,6 +280,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       signUp,
       signInDemo,
       signOut,
+      setUserFromAuth,
       updateProfile,
       createProject,
       deleteProject,

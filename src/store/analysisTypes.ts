@@ -114,22 +114,48 @@ export interface LiveSession {
   finished_at: string | null
 }
 
+// Alert
+export interface Alert {
+  id: string
+  severity: string
+  title: string
+  message: string
+  source_agent: string
+  status: 'active' | 'acknowledged' | 'resolved'
+  created_at: string
+  acknowledged_at?: string | null
+  resolved_at?: string | null
+}
+
+// Commitment
+export interface Commitment {
+  id: string
+  title: string
+  status: string
+  previous_status?: string
+}
+
 // Eventos WebSocket
 export type WsEventType =
   | 'source_event.received'
   | 'analysis.started'
   | 'agent_run.started'
   | 'agent_run.completed'
+  | 'evidence.created'
   | 'risk_case.created'
   | 'risk_case.updated'
   | 'alert.created'
-  | 'evidence.created'
+  | 'alert.acknowledged'
+  | 'alert.resolved'
   | 'decision.created'
   | 'decision.approved'
   | 'decision.rejected'
   | 'decision.updated'
+  | 'decision.executed'
+  | 'commitment.status_changed'
   | 'timeline.appended'
   | 'analysis.completed'
+  | 'cerebro.state_changed'
   | 'pong'
 
 export interface WsEvent {

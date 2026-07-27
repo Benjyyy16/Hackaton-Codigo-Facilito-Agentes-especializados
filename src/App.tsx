@@ -10,11 +10,12 @@ const Dashboard = lazy(() => import('@/pages/Dashboard'))
 const ProjectBoard = lazy(() => import('@/pages/ProjectBoard'))
 const Profile = lazy(() => import('@/pages/Profile'))
 const DatgentAnalysis = lazy(() => import('@/pages/DatgentAnalysis'))
+const Login = lazy(() => import('@/pages/Login'))
 
 /** Bloquea rutas de la app si no hay sesión. */
 function Protected({ children }: { children: ReactNode }) {
   const { user } = useAppStore()
-  if (!user) return <Navigate to="/" replace />
+  if (!user) return <Navigate to="/login" replace />
   return <>{children}</>
 }
 
@@ -68,6 +69,7 @@ function Router() {
               </Protected>
             }
           />
+          <Route path="/login" element={<Login />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AnimatePresence>

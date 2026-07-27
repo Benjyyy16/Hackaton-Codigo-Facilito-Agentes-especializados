@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowRight, GitPullRequest, Plus, Unplug, Users } from 'lucide-react'
+import { ArrowRight, GitPullRequest, Plus, Unplug, Users, CloudOff } from 'lucide-react'
 import { AppShell } from '@/components/app/AppShell'
 import { NewProjectModal } from '@/components/app/NewProjectModal'
 import { Button } from '@/components/ui/Button'
@@ -9,12 +9,17 @@ import { Avatar } from '@/components/ui/Avatar'
 import { Odometer, Stamp } from '@/components/ui/Bits'
 import { GitHubLogo, SupabaseLogo } from '@/components/brand/Logos'
 import { useAppStore } from '@/store/AppStore'
+import { useProjects } from '@/hooks/useProjects'
 import { cn } from '@/lib/cn'
 
 export default function Dashboard() {
   const { projects, collaborators, user } = useAppStore()
+  const { projects: apiProjects, loading: apiLoading, error: apiError } = useProjects()
   const [modalOpen, setModalOpen] = useState(false)
   const navigate = useNavigate()
+
+  // Banner sutil si API no disponible
+  const usingApi = !apiError && !apiLoading && apiProjects.length > 0
 
   const totalTasks = projects.reduce((s, p) => s + p.tasks.length, 0)
   const doneTasks = projects.reduce(
@@ -43,6 +48,19 @@ export default function Dashboard() {
         </div>
 
         {/* Panel de resumen: ledger de 4 celdas */}
+        {usingApi && (
+          <div className="mt-4 rounded-lg border border-mint-600/30 bg-mint-900/10 px-3 py-2">
+            <p className="text-xs text-mint-400">
+              ✓ Conectado a API — {apiProjects.length} proyecto(s) en backend
+            </p>
+          </div>
+        )}
+        {apiError && (
+          <div className="mt-4 flex items-center gap-2 rounded-lg border border-ink-700 bg-ink-800/50 px-3 py-2">
+            <CloudOff className="h-3.5 w-3.5 text-ink-400" />
+            <p className="text-xs text-ink-400">API no disponible — mostrando datos locales</p>
+          </div>
+        )}
         <div className="mt-8 overflow-hidden rounded-xl border-2 border-ink-900 bg-paper shadow-hard">
           <div className="grid divide-y-2 divide-ink-100 sm:grid-cols-4 sm:divide-y-0 sm:divide-x-2">
             {[
