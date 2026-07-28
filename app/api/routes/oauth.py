@@ -133,7 +133,7 @@ async def callback(
     settings: SettingsDep,
     code: str = Query(...),
     state: str = Query(...),
-) -> dict:
+) -> RedirectResponse:
     if provider not in PROVIDERS:
         raise HTTPException(404, f"Provider {provider} no soporta OAuth")
 
@@ -185,9 +185,11 @@ async def callback(
         "status":      "active",
     }, on_conflict="user_id,provider").execute()
 
-    return {
-        "status": "connected",
-        "provider": provider,
-        "user_id": user_id,
-        "message": f"{provider.capitalize()} vinculado correctamente.",
-    }
+    # Volver al frontend en lugar de dejar al usuario frente a un JSON en el
+    # dominio del backend. GitHub vuelve al selector de repos, que es lo que la
+    # vinculación habilita; el resto al tablero.
+    frontend = str(settings.FRONTEND_URL).rstrip("/")
+    destination = (
+        f"{frontend}/app/datgent/select-repo" if provider == "github" else f"{frontend}/app"
+    )
+    return RedirectResponse(f"{destination}?connected={provider}")

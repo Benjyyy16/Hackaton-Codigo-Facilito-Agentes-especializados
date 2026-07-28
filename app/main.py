@@ -28,6 +28,7 @@ from app.api.routes import (
     demo as demo_routes,
     documents as documents_routes,
     finance,
+    github_repos,
     health,
     integrations,
     live as live_routes,
@@ -210,6 +211,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(chat_routes.router)
     app.include_router(health.router)
     app.include_router(provider_routes.router)
+    app.include_router(github_repos.router)
     # Dominio Datgent
     app.include_router(projects_routes.router)
     app.include_router(commitments_routes.router)
