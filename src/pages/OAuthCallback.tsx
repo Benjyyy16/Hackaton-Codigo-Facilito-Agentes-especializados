@@ -57,7 +57,7 @@ export default function OAuthCallback() {
       try {
         const me = await getMe(token, controller.signal)
         setUser({ id: me.id, name: me.name, email: me.email })
-        navigate('/app/datgent/select-repo', { replace: true })
+        navigate('/app', { replace: true })
       } catch (err) {
         if (isAbortError(err)) return
         // El token no sirvió: no dejarlo guardado para que no ensucie las

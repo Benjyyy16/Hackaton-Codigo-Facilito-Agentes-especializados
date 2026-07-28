@@ -6,8 +6,10 @@
   "devCommand": "npm run dev",
   "rewrites": [
     { "source": "/auth/callback", "destination": "/index.html" },
+    { "source": "/oauth/callback", "destination": "/index.html" },
 
     { "source": "/live/:path*", "destination": "https://hackaton-codigo-facilito-agentes.onrender.com/live/:path*" },
+    { "source": "/oauth/:path*", "destination": "https://hackaton-codigo-facilito-agentes.onrender.com/oauth/:path*" },
     { "source": "/auth/:path*", "destination": "https://hackaton-codigo-facilito-agentes.onrender.com/auth/:path*" },
     { "source": "/providers/:path*", "destination": "https://hackaton-codigo-facilito-agentes.onrender.com/providers/:path*" },
     { "source": "/projects", "destination": "https://hackaton-codigo-facilito-agentes.onrender.com/projects" },

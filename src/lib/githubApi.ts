@@ -1,4 +1,4 @@
-import { authHeaders } from '@/lib/authApi'
+import { authHeaders, getStoredToken } from '@/lib/authApi'
 import { requestJson } from '@/lib/http'
 
 const BASE = import.meta.env.VITE_BACKEND_URL ?? 'http://localhost:8000'
@@ -29,4 +29,20 @@ export function listUserRepos(signal?: AbortSignal): Promise<GitHubRepo[]> {
     timeoutMs: 20_000,
     signal,
   })
+}
+
+/**
+ * URL para vincular la cuenta de GitHub del usuario.
+ *
+ * El login con GitHub sólo pide `read:user user:email`, que no alcanza para
+ * listar repositorios. Esta vinculación es un paso aparte con scope `repo`; el
+ * backend guarda el token y al terminar redirige de vuelta al selector.
+ *
+ * Es una navegación del navegador, no un fetch: el backend responde con
+ * redirecciones hacia GitHub. Devuelve `null` si no hay sesión.
+ */
+export function connectGitHubUrl(): string | null {
+  const token = getStoredToken()
+  if (!token) return null
+  return `${BASE}/oauth/github/authorize?token=${encodeURIComponent(token)}`
 }

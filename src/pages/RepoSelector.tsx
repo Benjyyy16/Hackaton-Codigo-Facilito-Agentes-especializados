@@ -2,8 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { GitBranch, Search, AlertCircle, Play, Zap } from 'lucide-react'
-import { listUserRepos, type GitHubRepo } from '@/lib/githubApi'
+import { connectGitHubUrl, listUserRepos, type GitHubRepo } from '@/lib/githubApi'
 import { startAnalysisFromRepo } from '@/lib/analysisApi'
+import { GitHubLogo } from '@/components/brand/Logos'
 import { Button } from '@/components/ui/Button'
 import { LoadingRegion, RepoRowSkeleton } from '@/components/ui/Skeleton'
 import { errorMessage, isAbortError, isHttpError } from '@/lib/http'
@@ -16,7 +17,21 @@ export default function RepoSelector() {
   const [reposUnavailable, setReposUnavailable] = useState(false)
   const [search, setSearch] = useState('')
   const [starting, setStarting] = useState<string | null>(null)
+  const [connecting, setConnecting] = useState(false)
   const navigate = useNavigate()
+
+  /** `null` si la sesión ya no sirve: sin JWT no se puede iniciar la vinculación. */
+  const connectUrl = useMemo(() => connectGitHubUrl(), [])
+
+  /**
+   * Sale del SPA a propósito: el backend responde con redirecciones hacia
+   * GitHub, así que tiene que navegar el browser y no un fetch.
+   */
+  const connect = useCallback(() => {
+    if (!connectUrl) return
+    setConnecting(true)
+    window.location.assign(connectUrl)
+  }, [connectUrl])
 
   /** Cancela el arranque anterior si el usuario elige otro repo. */
   const startAbortRef = useRef<AbortController | null>(null)
@@ -114,27 +129,37 @@ export default function RepoSelector() {
           </div>
         )}
 
-        {/* GitHub no disponible en esta instancia → camino demo */}
+        {/* GitHub sin vincular → ofrecer conectar, con el demo como salida */}
         {reposUnavailable && !loading && (
           <div className="mt-5 rounded-xl border-2 border-clay-300 bg-clay-100 p-4">
             <p className="text-[13px] font-bold text-clay-700">
-              Esta instancia no tiene GitHub conectado
+              Conectá tu cuenta de GitHub
             </p>
             <p className="mt-1 text-[12.5px] leading-relaxed text-clay-700">
-              El backend no expone la lista de repositorios. Podés ejecutar el ciclo completo con el
-              caso de demostración.
+              Para listar tus repositorios necesitamos permiso de lectura sobre ellos. Iniciar
+              sesión con GitHub no lo incluye, así que es un paso aparte que se hace una sola vez.
             </p>
-            <div className="mt-3">
-              <Button
-                size="sm"
+            <div className="mt-3 flex flex-wrap gap-2">
+              {connectUrl && (
+                <Button size="sm" onClick={() => void connect()} loading={connecting}>
+                  <GitHubLogo className="h-3.5 w-3.5" />
+                  Conectar GitHub
+                </Button>
+              )}
+              <button
                 onClick={() => void launch(null)}
-                loading={starting === '__demo__'}
-                disabled={starting !== null}
+                disabled={starting !== null || connecting}
+                className="inline-flex items-center gap-1.5 rounded-lg border-2 border-clay-400 bg-white px-3 py-1.5 text-[12.5px] font-semibold text-clay-700 transition hover:border-clay-600 disabled:opacity-60"
               >
                 <Zap className="h-3.5 w-3.5" aria-hidden />
-                Analizar caso demo
-              </Button>
+                {starting === '__demo__' ? 'Iniciando…' : 'Usar caso demo'}
+              </button>
             </div>
+            {!connectUrl && (
+              <p className="mt-2 text-[11.5px] text-clay-700">
+                Tu sesión expiró. Volvé a iniciar sesión para conectar GitHub.
+              </p>
+            )}
           </div>
         )}
 

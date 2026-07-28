@@ -264,10 +264,19 @@ export default function Dashboard() {
               Tus tableros
             </h1>
           </div>
-          <Button onClick={openModal} aria-label="Crear nuevo proyecto">
-            <Plus className="h-4 w-4" aria-hidden />
-            Nuevo proyecto
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              to="/app/datgent/select-repo"
+              className="inline-flex items-center gap-2 rounded-lg border-2 border-ink-900 bg-paper px-3 py-2 text-[13px] font-bold text-ink-900 shadow-hard transition-transform hover:-translate-y-0.5"
+            >
+              <GitHubLogo className="h-4 w-4" />
+              Mis repositorios
+            </Link>
+            <Button onClick={openModal} aria-label="Crear nuevo proyecto">
+              <Plus className="h-4 w-4" aria-hidden />
+              Nuevo proyecto
+            </Button>
+          </div>
         </div>
 
         {/* Estado de la API */}
