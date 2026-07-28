@@ -22,6 +22,21 @@ const agents = [
   { icon: FileText, name: 'Cronista', code: 'AG-06', side: 'r' as const, row: 2 },
 ]
 
+const creators = [
+  {
+    name: 'Benjamin Aguilar',
+    href: 'https://www.linkedin.com/in/benjamin-aguilar-b-847846347/',
+  },
+  {
+    name: 'Tomas Hernandez',
+    href: 'https://www.linkedin.com/in/tomasghernandez/',
+  },
+  {
+    name: 'Ramon Molina',
+    href: 'https://www.linkedin.com/in/ramon-eduardo-molina-fierro-80925837a/',
+  },
+]
+
 export function AgentBlueprint() {
   return (
     <div className="relative mx-auto w-full max-w-[520px]">
@@ -148,9 +163,23 @@ export function AgentBlueprint() {
         <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-ink-400">
           creada por
         </p>
-        <p className="mt-1 text-[13px] font-extrabold leading-snug text-ink-900">
-          Benjamin Aguilar, Tomas Hernandez, Ramon Molina
-        </p>
+        <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-[13px] font-extrabold leading-snug text-ink-900">
+          {creators.map((creator, index) => (
+            <motion.a
+              key={creator.href}
+              href={creator.href}
+              target="_blank"
+              rel="noreferrer"
+              whileHover={{ y: -2 }}
+              whileTap={{ scale: 0.96 }}
+              className="group relative outline-none focus-visible:text-violet-700"
+            >
+              {creator.name}
+              {index < creators.length - 1 ? ',' : ''}
+              <span className="absolute -bottom-0.5 left-0 h-[2px] w-0 bg-violet-600 transition-all duration-200 group-hover:w-full group-focus-visible:w-full" />
+            </motion.a>
+          ))}
+        </div>
         <div className="mt-3 flex items-center gap-2">
           <OrquestaMark className="h-8 w-8" />
           <CodigoFacilitoLogo className="h-8 w-8" />

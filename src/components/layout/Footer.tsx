@@ -12,6 +12,21 @@ const columns = [
   { title: 'Compañía', links: ['Sobre Datgent', 'Privacidad', 'Términos', 'Contacto'] },
 ]
 
+const creators = [
+  {
+    name: 'Benjamin Aguilar',
+    href: 'https://www.linkedin.com/in/benjamin-aguilar-b-847846347/',
+  },
+  {
+    name: 'Tomas Hernandez',
+    href: 'https://www.linkedin.com/in/tomasghernandez/',
+  },
+  {
+    name: 'Ramon Molina',
+    href: 'https://www.linkedin.com/in/ramon-eduardo-molina-fierro-80925837a/',
+  },
+]
+
 export function Footer() {
   return (
     <footer className="relative mt-16 border-t-2 border-ink-900 bg-paper">
@@ -69,7 +84,19 @@ export function Footer() {
         <div className="mt-12 flex flex-col gap-3 border-t-2 border-dashed border-ink-200 pt-6 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="font-mono text-[11px] text-ink-500">
-              Creada por Benjamin Aguilar, Tomas Hernandez, Ramon Molina
+              Creada por{' '}
+              {creators.map((creator, index) => (
+                <a
+                  key={creator.href}
+                  href={creator.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-block font-bold text-ink-700 transition hover:-translate-y-0.5 hover:text-violet-700 focus-visible:text-violet-700 focus-visible:outline-none"
+                >
+                  {creator.name}
+                  {index < creators.length - 1 ? ', ' : ''}
+                </a>
+              ))}
             </p>
             <div className="mt-2 flex items-center gap-2">
               <OrquestaMark className="h-7 w-7" />
