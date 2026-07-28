@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { AlertTriangle, Eye, Github, Lock, Mail, X } from 'lucide-react'
-import { useAppStore } from '@/store/AppStore'
+import { AlertTriangle, Eye, Github, Lock, Mail, PlayCircle, X, Zap } from 'lucide-react'
+import { DEMO_CREDENTIALS, useAppStore } from '@/store/AppStore'
 import { OrquestaMark } from '@/components/brand/Logos'
 import { getStoredToken, oauthLoginUrl } from '@/lib/authApi'
 import { getProvenance } from '@/lib/analysisApi'
@@ -10,7 +10,7 @@ import { getProvenance } from '@/lib/analysisApi'
 export default function Login() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
-  const { user, signIn, signOut, sessionNotice } = useAppStore()
+  const { user, signIn, signInDemo, signOut, sessionNotice } = useAppStore()
 
   /** `null` mientras se consulta; luego si el backend tiene GitHub conectado. */
   const [githubReady, setGithubReady] = useState<boolean | null>(null)
@@ -69,6 +69,16 @@ export default function Login() {
     navigate('/app', { replace: true })
   }
 
+  function handleDemo() {
+    signInDemo()
+    navigate('/app', { replace: true })
+  }
+
+  function fillDemo() {
+    setEmail(DEMO_CREDENTIALS.email)
+    setPassword(DEMO_CREDENTIALS.password)
+  }
+
   return (
     <div className="grid min-h-screen place-items-center bg-ink-950/55 px-4 py-10 backdrop-blur-sm">
       <motion.div
@@ -114,6 +124,49 @@ export default function Login() {
             </p>
           </div>
         )}
+
+        <div className="mb-6 rounded-xl border-2 border-violet-500 bg-violet-50 p-4">
+          <div className="flex items-start gap-3">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border-2 border-ink-900 bg-violet-600 text-white shadow-hard-sm">
+              <Zap className="h-5 w-5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[16px] font-extrabold text-ink-900">
+                Cuenta demo · ver todas las vistas
+              </p>
+              <p className="mt-1 text-[13px] leading-relaxed text-ink-500">
+                3 proyectos, tableros canvas, kanban y perfil de equipo. Sin registro.
+              </p>
+
+              <div className="mt-3 rounded-lg border border-violet-200 bg-paper px-3 py-2 font-mono text-[11px] text-ink-700">
+                <p className="flex justify-between gap-2">
+                  <span className="uppercase tracking-wider text-ink-300">correo</span>
+                  <span className="truncate font-bold">{DEMO_CREDENTIALS.email}</span>
+                </p>
+                <p className="mt-1 flex justify-between gap-2">
+                  <span className="uppercase tracking-wider text-ink-300">clave</span>
+                  <span className="font-bold">{DEMO_CREDENTIALS.password}</span>
+                </p>
+              </div>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  onClick={handleDemo}
+                  className="inline-flex items-center gap-2 rounded-lg border-2 border-ink-900 bg-violet-600 px-4 py-2 text-[14px] font-extrabold text-white shadow-hard-sm"
+                >
+                  <PlayCircle className="h-4 w-4" />
+                  Entrar a la demo
+                </button>
+                <button
+                  onClick={fillDemo}
+                  className="rounded-lg border-2 border-ink-200 bg-paper px-4 py-2 text-[14px] font-extrabold text-ink-700"
+                >
+                  Autocompletar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
 
         <div className="mb-5 flex items-center gap-4">
           <span className="h-px flex-1 bg-ink-100" />

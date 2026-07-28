@@ -16,8 +16,8 @@ const STORAGE_KEY = 'orquesta.session.v1'
 
 /** Credenciales de la cuenta de demostración, visibles a propósito. */
 export const DEMO_CREDENTIALS = {
-  email: 'demo@orquesta.dev',
-  password: 'orquesta2026',
+  email: 'usuariohackatoncodfacilito@datgent.dev',
+  password: 'datgent2026',
 } as const
 
 interface AppStore {
@@ -108,7 +108,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     setSessionNotice(null)
     setUser({
       id: 'u_demo',
-      name: 'Ramón Ortega',
+      name: 'usuariohackatoncodfacilito',
       email: DEMO_CREDENTIALS.email,
       specialty: 'Full-stack · React + Postgres',
       title: 'Tech Lead · cuenta demo',
