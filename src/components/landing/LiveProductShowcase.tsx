@@ -15,10 +15,10 @@ const integrations = [
   ['Slack', 'Alertas', <span className="text-xl">💬</span>],
 ]
 
-export function LiveProductShowcase() {
+export function LiveProductShowcase({ embedded = false }: { embedded?: boolean }) {
   return (
-    <section className="relative py-16 sm:py-24">
-      <div className="container-page">
+    <section className={embedded ? 'relative' : 'relative py-16 sm:py-24'}>
+      <div className={embedded ? '' : 'container-page'}>
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="label-mono text-violet-600">producto real</p>

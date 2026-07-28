@@ -14,10 +14,11 @@ import {
 import { AppShell } from '@/components/app/AppShell'
 import { CompanyAiChat } from '@/components/app/CompanyAiChat'
 import { NewProjectModal } from '@/components/app/NewProjectModal'
+import { LiveProductShowcase } from '@/components/landing/LiveProductShowcase'
 import { Button } from '@/components/ui/Button'
 import { Avatar } from '@/components/ui/Avatar'
 import { Odometer, Stamp } from '@/components/ui/Bits'
-import { GitHubLogo, SupabaseLogo } from '@/components/brand/Logos'
+import { CodigoFacilitoLogo, GitHubLogo, KiroLogo, OrquestaMark, SupabaseLogo } from '@/components/brand/Logos'
 import { useAppStore } from '@/store/AppStore'
 import { useProjects } from '@/hooks/useProjects'
 import { cn } from '@/lib/cn'
@@ -207,6 +208,24 @@ const ProjectCard = memo(function ProjectCard({
   )
 })
 
+function DashboardCredits() {
+  return (
+    <div className="mt-8 rounded-xl border-2 border-ink-900 bg-paper p-4 shadow-hard-sm">
+      <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-ink-400">
+        creada por
+      </p>
+      <p className="mt-1 text-[14px] font-extrabold text-ink-900">
+        Benjamin Aguilar, Tomas Hernandez, Ramon Molina
+      </p>
+      <div className="mt-3 flex items-center gap-2">
+        <OrquestaMark className="h-9 w-9" />
+        <CodigoFacilitoLogo className="h-9 w-9" />
+        <KiroLogo className="h-9 w-9" />
+      </div>
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const { projects, collaborators, user, createProject } = useAppStore()
   const { projects: apiProjects, loading: apiLoading, error: apiError } = useProjects()
@@ -289,9 +308,11 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {isRealGithubSession && (
-          <div className="mt-8">
-            <CompanyAiChat onCreateExample={createExampleRepo} />
+        {user && (
+          <div className="mt-8 space-y-8">
+            {isRealGithubSession && <CompanyAiChat onCreateExample={createExampleRepo} />}
+            <LiveProductShowcase embedded />
+            <DashboardCredits />
           </div>
         )}
 
