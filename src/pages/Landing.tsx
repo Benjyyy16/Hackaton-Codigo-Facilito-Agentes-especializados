@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
 import { Hero } from '@/components/landing/Hero'
+import { LiveProductShowcase } from '@/components/landing/LiveProductShowcase'
 import { ProblemStats } from '@/components/landing/ProblemStats'
 import { AgentsSection } from '@/components/landing/AgentsSection'
 import { CanvasShowcase } from '@/components/landing/CanvasShowcase'
@@ -41,6 +42,7 @@ export default function Landing() {
 
       <main>
         <Hero onOpenAuth={openAuth} onDemo={enterDemo} />
+        <LiveProductShowcase />
         <ProblemStats />
         <AgentsSection />
         {/* El tablero canvas va antes de las conexiones */}

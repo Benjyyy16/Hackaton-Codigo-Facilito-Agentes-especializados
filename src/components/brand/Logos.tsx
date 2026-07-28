@@ -226,21 +226,22 @@ export function OrquestaMark({ className = 'h-8 w-8' }: LogoProps) {
 
 export function CodigoFacilitoLogo({ className = 'h-7 w-7', ...props }: LogoProps) {
   return (
-    <svg viewBox="0 0 40 40" className={className} role="img" aria-label="Código Facilito" {...props}>
-      <rect x="3" y="3" width="34" height="34" rx="8" fill="#111827" />
-      <path d="M15 13 8 20l7 7" fill="none" stroke="#22c55e" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M25 13 32 20l-7 7" fill="none" stroke="#38bdf8" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M22 10 18 30" stroke="#f8fafc" strokeWidth="3" strokeLinecap="round" />
-    </svg>
+    <img
+      src="/codigo-facilito-logo.png"
+      alt="Código Facilito"
+      className={`${className} object-contain`}
+      {...(props as React.ImgHTMLAttributes<HTMLImageElement>)}
+    />
   )
 }
 
 export function KiroLogo({ className = 'h-7 w-7', ...props }: LogoProps) {
   return (
-    <svg viewBox="0 0 40 40" className={className} role="img" aria-label="Kiro" {...props}>
-      <rect x="3" y="3" width="34" height="34" rx="8" fill="#7c3aed" />
-      <path d="M13 10v20M13 21l13-11M18 18l9 12" fill="none" stroke="#fff" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="29" cy="11" r="3" fill="#3ee68f" />
-    </svg>
+    <img
+      src="/kiro-logo.png"
+      alt="Kiro"
+      className={`${className} rounded-lg object-contain`}
+      {...(props as React.ImgHTMLAttributes<HTMLImageElement>)}
+    />
   )
 }
