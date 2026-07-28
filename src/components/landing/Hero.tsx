@@ -57,7 +57,7 @@ export function Hero({
               </span>
             </motion.div>
 
-            <h1 className="font-display text-[46px] leading-[0.95] tracking-tightest text-ink-900 sm:text-[64px] lg:text-[72px]">
+            <h1 className="font-display text-[clamp(2.7rem,15vw,4rem)] leading-[0.95] tracking-tightest text-ink-900 lg:text-[72px]">
               <WordsReveal text="Tu CEO técnico" delay={0.08} />
               <br />
               <span className="relative inline-block">
@@ -123,13 +123,13 @@ export function Hero({
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 1.12, duration: 0.6 }}
-              className="mt-9 flex flex-wrap items-center gap-3"
+              className="mt-9 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center"
             >
-              <Button size="lg" onClick={() => onOpenAuth('login')}>
+              <Button size="lg" fullWidth onClick={() => onOpenAuth('login')} className="sm:w-auto">
                 Ingresar
                 <ArrowRight className="h-4 w-4" />
               </Button>
-              <Button size="lg" variant="paper" onClick={onDemo}>
+              <Button size="lg" variant="paper" fullWidth onClick={onDemo} className="sm:w-auto">
                 <PlayCircle className="h-4 w-4 text-violet-600" />
                 Entrar a la demo
               </Button>
@@ -146,7 +146,7 @@ export function Hero({
           </div>
 
           {/* ============ Columna plano ============ */}
-          <motion.div style={{ y: yArt, opacity: fade }} className="relative">
+          <motion.div style={{ y: yArt, opacity: fade }} className="relative mx-auto w-full max-w-[560px] lg:max-w-none">
             <AgentBlueprint />
 
             {/* recortes flotantes de evidencia */}

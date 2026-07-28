@@ -60,7 +60,7 @@ export default function Profile() {
                   transition={{ type: 'spring', stiffness: 250, damping: 17 }}
                   className="rounded-lg border-2 border-ink-900 p-1 shadow-hard-sm"
                 >
-                  <Avatar name={user.name} hue={user.avatarHue} size={70} ring={false} />
+                  <Avatar name={user.name} hue={user.avatarHue} src={user.avatarUrl} size={70} ring={false} />
                 </motion.div>
 
                 <div className="min-w-0">

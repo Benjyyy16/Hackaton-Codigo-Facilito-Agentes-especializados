@@ -114,6 +114,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       specialty: 'Full-stack · React + Postgres',
       title: 'Tech Lead · cuenta demo',
       avatarHue: 265,
+      avatarUrl: '/codigo-facilito-logo-sm.png',
       provider: 'password',
       isDemo: true,
     })
@@ -170,7 +171,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         specialty: '',
         title: '',
         avatarHue: 265,
-        provider: 'password',
+        avatarUrl: input.avatar,
+        provider: 'github',
       })
     },
     [],

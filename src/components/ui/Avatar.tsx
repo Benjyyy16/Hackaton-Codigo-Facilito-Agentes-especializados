@@ -14,15 +14,37 @@ export function Avatar({
   name,
   hue = 265,
   size = 36,
+  src,
   className,
   ring = true,
 }: {
   name: string
   hue?: number
   size?: number
+  src?: string | null
   className?: string
   ring?: boolean
 }) {
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt=""
+        title={name}
+        width={size}
+        height={size}
+        loading="lazy"
+        decoding="async"
+        style={{ width: size, height: size }}
+        className={cn(
+          'inline-block shrink-0 rounded-full bg-paper object-cover',
+          ring && 'ring-2 ring-ink-900',
+          className,
+        )}
+      />
+    )
+  }
+
   return (
     <span
       aria-hidden

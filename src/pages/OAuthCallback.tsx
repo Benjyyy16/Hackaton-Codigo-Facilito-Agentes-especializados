@@ -56,7 +56,7 @@ export default function OAuthCallback() {
 
       try {
         const me = await getMe(token, controller.signal)
-        setUser({ id: me.id, name: me.name, email: me.email })
+        setUser({ id: me.id, name: me.name, email: me.email, avatar: me.avatar ?? undefined })
         navigate('/app', { replace: true })
       } catch (err) {
         if (isAbortError(err)) return

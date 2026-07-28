@@ -22,6 +22,7 @@ export interface CurrentUser {
   email: string
   name: string
   roles: string[]
+  avatar?: string | null
 }
 
 interface StoredSession {

@@ -114,7 +114,7 @@ export function Navbar({
                     aria-label="Ver perfil"
                     className="rounded-full border-2 border-ink-900 transition-transform hover:-translate-y-0.5"
                   >
-                    <Avatar name={user.name} hue={user.avatarHue} size={32} ring={false} />
+                    <Avatar name={user.name} hue={user.avatarHue} src={user.avatarUrl} size={32} ring={false} />
                   </Link>
                 </>
               ) : (

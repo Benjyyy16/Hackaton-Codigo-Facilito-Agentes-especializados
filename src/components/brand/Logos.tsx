@@ -217,8 +217,11 @@ export function StripeLogo({ className = 'h-5 w-5', ...props }: LogoProps) {
 export function OrquestaMark({ className = 'h-8 w-8' }: LogoProps) {
   return (
     <img
-      src="/datgent-logo.png"
+      src="/datgent-logo-sm.png"
       alt="Datgent"
+      width="192"
+      height="192"
+      decoding="async"
       className={`${className} rounded-lg object-contain`}
     />
   )
@@ -227,8 +230,12 @@ export function OrquestaMark({ className = 'h-8 w-8' }: LogoProps) {
 export function CodigoFacilitoLogo({ className = 'h-7 w-7', ...props }: LogoProps) {
   return (
     <img
-      src="/codigo-facilito-logo.png"
+      src="/codigo-facilito-logo-sm.png"
       alt="Código Facilito"
+      width="192"
+      height="143"
+      loading="lazy"
+      decoding="async"
       className={`${className} object-contain`}
       {...(props as React.ImgHTMLAttributes<HTMLImageElement>)}
     />
@@ -238,8 +245,12 @@ export function CodigoFacilitoLogo({ className = 'h-7 w-7', ...props }: LogoProp
 export function KiroLogo({ className = 'h-7 w-7', ...props }: LogoProps) {
   return (
     <img
-      src="/kiro-logo.png"
+      src="/kiro-logo-sm.png"
       alt="Kiro"
+      width="192"
+      height="192"
+      loading="lazy"
+      decoding="async"
       className={`${className} rounded-lg object-contain`}
       {...(props as React.ImgHTMLAttributes<HTMLImageElement>)}
     />

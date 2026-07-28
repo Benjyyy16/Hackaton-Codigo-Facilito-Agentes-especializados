@@ -18,7 +18,7 @@ export function AppShell({
   const navigate = useNavigate()
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen overflow-x-clip">
       {/* ================= Sidebar ================= */}
       <aside className="sticky top-0 hidden h-screen w-[266px] shrink-0 flex-col border-r-2 border-ink-900 bg-paper lg:flex">
         <div className="flex h-[66px] items-center border-b-2 border-ink-900 px-5">
@@ -134,7 +134,7 @@ export function AppShell({
               to="/perfil"
               className="flex items-center gap-3 rounded-lg border-2 border-ink-100 px-2.5 py-2.5 transition-colors hover:border-ink-900"
             >
-              <Avatar name={user.name} hue={user.avatarHue} size={34} />
+              <Avatar name={user.name} hue={user.avatarHue} src={user.avatarUrl} size={34} />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[13px] font-bold text-ink-900">
                   {user.name}
@@ -158,7 +158,7 @@ export function AppShell({
       </aside>
 
       {/* ================= Contenido ================= */}
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 overflow-x-clip">
         {/* barra móvil */}
         <div className="sticky top-0 z-40 border-b-2 border-ink-900 bg-paper/95 backdrop-blur-md lg:hidden">
           <div className="flex h-[58px] items-center justify-between px-4">
@@ -174,7 +174,7 @@ export function AppShell({
               )}
               {user && (
                 <Link to="/perfil" aria-label="Ver perfil" className="rounded-full border-2 border-ink-900">
-                  <Avatar name={user.name} hue={user.avatarHue} size={28} ring={false} />
+                  <Avatar name={user.name} hue={user.avatarHue} src={user.avatarUrl} size={28} ring={false} />
                 </Link>
               )}
               {onNewProject && (

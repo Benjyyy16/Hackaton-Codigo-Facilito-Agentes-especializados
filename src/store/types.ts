@@ -78,7 +78,8 @@ export interface User {
   specialty: string
   title: string
   avatarHue: number
-  provider: 'password' | 'google'
+  avatarUrl?: string | null
+  provider: 'password' | 'google' | 'github'
   /** Marca la sesión de demostración (datos de ejemplo, no reales) */
   isDemo?: boolean
 }
