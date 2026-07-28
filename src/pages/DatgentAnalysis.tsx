@@ -46,7 +46,7 @@ const showcaseAgents = [
   { name: 'Agente Datos', score: 75, meta: '1 hallazgo · confianza 100%', sev: 'alto', Icon: Database, cls: 'text-mint-700 bg-mint-50' },
 ] as const
 
-function AgentShowcaseCards() {
+function AgentShowcaseCards({ onViewEvidence }: { onViewEvidence: () => void }) {
   return (
     <div>
       <div className="mb-4">
@@ -77,9 +77,13 @@ function AgentShowcaseCards() {
             </p>
             <p className="mt-4 font-mono text-[11px] text-ink-500">{meta}</p>
             <div className="mt-5 h-px border-t-2 border-dashed border-ink-100" />
-            <p className="mt-4 font-mono text-[10px] font-bold uppercase tracking-wider text-violet-700">
+            <button
+              type="button"
+              onClick={onViewEvidence}
+              className="mt-4 font-mono text-[10px] font-bold uppercase tracking-wider text-violet-700"
+            >
               Ver evidencia →
-            </p>
+            </button>
           </article>
         ))}
       </div>
@@ -302,7 +306,7 @@ export default function DatgentAnalysis() {
 
         {(isRunning || isStarting) && (
           <div className="mt-4">
-            <AnalysisTerminal active />
+            <AnalysisTerminal active session={session} />
           </div>
         )}
 
@@ -383,11 +387,11 @@ export default function DatgentAnalysis() {
                   ) : session && session.agents.length > 0 ? (
                     <div className="grid gap-3 sm:grid-cols-2">
                       {session.agents.map((ag, i) => (
-                        <AgentCard key={ag.agent} agent={ag} index={i} />
+                        <AgentCard key={ag.agent} agent={ag} index={i} onViewEvidence={() => setTab('evidencias')} />
                       ))}
                     </div>
                   ) : (
-                    <AgentShowcaseCards />
+                    <AgentShowcaseCards onViewEvidence={() => setTab('evidencias')} />
                   )}
 
                   {/* Escenarios */}

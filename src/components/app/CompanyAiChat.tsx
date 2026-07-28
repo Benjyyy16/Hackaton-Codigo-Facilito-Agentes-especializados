@@ -5,6 +5,7 @@ import { OrquestaMark } from '@/components/brand/Logos'
 import { sendAgentMessage, type ChatMessage } from '@/lib/chatApi'
 import { errorMessage } from '@/lib/http'
 import { cn } from '@/lib/cn'
+import type { LiveSession } from '@/store/analysisTypes'
 
 const starter: ChatMessage[] = [
   {
@@ -183,7 +184,29 @@ export function CompanyAiChat({
   )
 }
 
-export function AnalysisTerminal({ active }: { active: boolean }) {
+export function AnalysisTerminal({
+  active,
+  session,
+  label,
+}: {
+  active: boolean
+  session?: LiveSession | null
+  label?: string
+}) {
+  const running = session?.agents.find((agent) => agent.state === 'investigating')
+  const completed = session?.agents.filter((agent) => agent.state === 'completed').length ?? 0
+  const total = session?.agents.length ?? 0
+  const evidence = session?.evidence_count ?? 0
+  const status =
+    label ??
+    (running
+      ? `ejecutando ${running.agent.toLowerCase()}... ${completed}/${total} agentes · ${evidence} evidencias`
+      : session
+        ? `${session.state} · ${completed}/${total} agentes · ${evidence} evidencias`
+        : active
+          ? 'iniciando agentes y leyendo proveedores...'
+          : 'listo para analizar main')
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -200,7 +223,7 @@ export function AnalysisTerminal({ active }: { active: boolean }) {
       </div>
       <div className="flex items-center gap-3 px-5 py-5 font-mono text-[15px] text-mint-300 sm:text-[17px]">
         <span className="text-white/35">$</span>
-        <span>{active ? 'analizando 1284 commits en main…' : 'listo para analizar main'}</span>
+        <span>{status}</span>
         {active && <span className="h-7 w-2 animate-pulse bg-violet-500" />}
       </div>
     </motion.div>

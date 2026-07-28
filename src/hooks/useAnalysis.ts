@@ -71,7 +71,7 @@ type Action =
   | { type: 'ERROR'; error: string }
   | { type: 'RESET' }
 
-const TERMINAL_STATES: CerebroState[] = ['completed', 'partial_error']
+const TERMINAL_STATES: CerebroState[] = ['awaiting_approval', 'completed', 'partial_error']
 
 function reducer(s: State, a: Action): State {
   switch (a.type) {

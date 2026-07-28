@@ -6,6 +6,7 @@ import type { LiveAgentRecord } from '@/store/analysisTypes'
 interface AgentCardProps {
   agent: LiveAgentRecord
   index: number
+  onViewEvidence?: () => void
 }
 
 const agentMeta: Record<string, { label: string; icon: React.ElementType; color: string }> = {
@@ -39,7 +40,7 @@ const severityColor: Record<string, string> = {
   low: 'text-mint-700 bg-mint-50 border-mint-400',
 }
 
-export function AgentCard({ agent, index }: AgentCardProps) {
+export function AgentCard({ agent, index, onViewEvidence }: AgentCardProps) {
   const meta = getAgentMeta(agent.agent)
   const Icon = meta.icon
   const isWaiting = agent.state === 'waiting'
@@ -145,6 +146,16 @@ export function AgentCard({ agent, index }: AgentCardProps) {
                 </p>
               ))}
             </div>
+          )}
+
+          {onViewEvidence && agent.findings_count > 0 && (
+            <button
+              type="button"
+              onClick={onViewEvidence}
+              className="pt-1 font-mono text-[10px] font-bold uppercase tracking-wider text-violet-700"
+            >
+              Ver evidencia →
+            </button>
           )}
         </div>
       )}
