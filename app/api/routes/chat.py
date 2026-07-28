@@ -34,6 +34,20 @@ class ChatResponse(BaseModel):
     agent: str = Field(default="datgent", description="Agente que responde")
 
 
+def _extract_response_text(data: dict) -> str:
+    output_text = data.get("output_text")
+    if isinstance(output_text, str) and output_text.strip():
+        return output_text
+
+    for item in data.get("output", []):
+        for content in item.get("content", []):
+            text = content.get("text")
+            if isinstance(text, str) and text.strip():
+                return text
+
+    return "No pude generar una respuesta."
+
+
 @router.post(
     "/chat",
     summary="Chat con los agentes",
@@ -46,7 +60,7 @@ async def agent_chat(request: ChatRequest) -> ChatResponse:
     if not api_key:
         raise HTTPException(503, "OPENAI_API_KEY no configurada")
 
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    messages = []
 
     # Agregar historial
     for msg in request.history[-10:]:  # últimos 10 mensajes
@@ -58,16 +72,16 @@ async def agent_chat(request: ChatRequest) -> ChatResponse:
     try:
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(
-                "https://api.openai.com/v1/chat/completions",
+                "https://api.openai.com/v1/responses",
                 headers={
                     "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json",
                 },
                 json={
                     "model": settings.OPENAI_MODEL,
-                    "messages": messages,
-                    "temperature": 0.4,
-                    "max_tokens": 350,
+                    "instructions": SYSTEM_PROMPT,
+                    "input": messages,
+                    "max_output_tokens": 350,
                 },
             )
 
@@ -75,7 +89,7 @@ async def agent_chat(request: ChatRequest) -> ChatResponse:
                 raise HTTPException(502, f"Error OpenAI: {resp.status_code}")
 
             data = resp.json()
-            content = data["choices"][0]["message"]["content"]
+            content = _extract_response_text(data)
 
             return ChatResponse(response=content, agent="datgent")
 
