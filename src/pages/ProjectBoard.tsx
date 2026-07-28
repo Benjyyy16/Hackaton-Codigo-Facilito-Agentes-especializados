@@ -3,7 +3,6 @@ import { Navigate, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   Bot,
-  Brain,
   GitBranch,
   GitPullRequest,
   KanbanSquare,
@@ -25,6 +24,7 @@ import { GitHubLogo, SupabaseLogo } from '@/components/brand/Logos'
 import { useAppStore } from '@/store/AppStore'
 import { sendAgentMessage, type ChatMessage } from '@/lib/chatApi'
 import { errorMessage } from '@/lib/http'
+import { OrquestaMark } from '@/components/brand/Logos'
 import type { Project, TaskStatus } from '@/store/types'
 import { cn } from '@/lib/cn'
 
@@ -107,10 +107,10 @@ function BoardAiAssistant({ project, view }: { project: Project; view: 'canvas' 
       <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-ink-100 bg-violet-50 px-4 py-3">
         <div className="flex items-center gap-2">
           <span className="grid h-9 w-9 place-items-center rounded-lg border-2 border-ink-900 bg-violet-600 text-white">
-            <Brain className="h-4 w-4" />
+            <OrquestaMark className="h-7 w-7" />
           </span>
           <div>
-            <p className="text-[15px] font-extrabold text-ink-900">IA conectada al tablero</p>
+            <p className="text-[15px] font-extrabold text-ink-900">Datgent conectada al tablero</p>
             <p className="font-mono text-[10px] uppercase tracking-wider text-ink-400">
               contexto en tiempo real · {view}
             </p>
