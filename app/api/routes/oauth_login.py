@@ -166,11 +166,11 @@ async def oauth_callback(
             raise HTTPException(502, f"Token no encontrado en respuesta de {provider}")
 
         # 2. Obtener perfil del usuario
-        email, name, user_id = await _fetch_user_profile(client, provider, access_token, cfg)
+        email, name, user_id, avatar = await _fetch_user_profile(client, provider, access_token, cfg)
 
     # 3. Crear JWT con los datos del usuario
     auth_service = AuthService(settings)
-    tokens = auth_service.create_tokens(user_id=user_id, email=email, name=name)
+    tokens = auth_service.create_tokens(user_id=user_id, email=email, name=name, avatar=avatar)
 
     # 4. Redirigir al frontend con tokens en query params
     frontend_url = settings.FRONTEND_URL
@@ -187,7 +187,7 @@ async def _fetch_user_profile(
     provider: str,
     access_token: str,
     cfg: dict,
-) -> tuple[str, str, str]:
+) -> tuple[str, str, str, str | None]:
     """Obtiene email, nombre y user_id del provider."""
     import hashlib
 
@@ -203,6 +203,7 @@ async def _fetch_user_profile(
 
         name = user_data.get("name") or user_data.get("login", "GitHub User")
         email = user_data.get("email")
+        avatar = user_data.get("avatar_url")
 
         # Si email es null, buscar en /user/emails
         if not email:
@@ -225,9 +226,10 @@ async def _fetch_user_profile(
 
         email = user_data.get("email", "")
         name = user_data.get("name", email.split("@")[0])
+        avatar = user_data.get("picture")
         user_id = f"go_{user_data.get('id', hashlib.sha256(email.encode()).hexdigest()[:12])}"
 
     else:
         raise HTTPException(404, f"Provider '{provider}' no soportado")
 
-    return email, name, user_id
+    return email, name, user_id, avatar

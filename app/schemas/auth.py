@@ -41,6 +41,7 @@ class CurrentUser(BaseModel):
     id: str = Field(..., description="ID único del usuario")
     email: str = Field(..., description="Email del usuario")
     name: str | None = Field(default=None, description="Nombre del usuario")
+    avatar: str | None = Field(default=None, description="URL de avatar del usuario")
     roles: list[str] = Field(default_factory=list, description="Roles asignados")
 
 

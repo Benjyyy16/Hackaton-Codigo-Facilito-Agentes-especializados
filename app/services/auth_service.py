@@ -62,7 +62,13 @@ class AuthService:
         computed = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 100_000)
         return secrets.compare_digest(computed.hex(), hashed)
 
-    def create_tokens(self, user_id: str, email: str, name: str | None = None) -> TokenResponse:
+    def create_tokens(
+        self,
+        user_id: str,
+        email: str,
+        name: str | None = None,
+        avatar: str | None = None,
+    ) -> TokenResponse:
         """Crea un pair de access + refresh tokens."""
         now = datetime.now(timezone.utc)
         access_expires_at = now + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -72,6 +78,7 @@ class AuthService:
             "sub": user_id,
             "email": email,
             "name": name,
+            "avatar": avatar,
             "exp": access_expires_at,
             "iat": now,
             "type": "access",
@@ -116,6 +123,7 @@ class AuthService:
             id=payload.get("sub", ""),
             email=payload.get("email", ""),
             name=payload.get("name"),
+            avatar=payload.get("avatar"),
             roles=payload.get("roles", []),
         )
 
