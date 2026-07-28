@@ -2,40 +2,25 @@
 
 from __future__ import annotations
 
-
-import os
-
 import httpx
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from app.core.config import get_settings
 
 router = APIRouter(prefix="/agents", tags=["agents-chat"])
 
-OPENAI_API_KEY = os.environ.get(
-    "OPENAI_API_KEY",
-    "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",
-)
+SYSTEM_PROMPT = """Eres Datgent Cerebro, IA empresarial multiagente.
 
-SYSTEM_PROMPT = """Eres Datgent Cerebro, el núcleo de inteligencia multiagente de Datgent. Coordinas agentes especializados que detectan riesgos en compromisos de proyectos de software.
+Regla principal: responde exactamente lo que el usuario solicita en su último mensaje.
+No fuerces análisis de riesgo si el usuario pidió redactar, resumir, explicar, responder
+un correo, preparar una respuesta comercial, crear tareas, priorizar o preguntar algo general.
 
-Presentate siempre como "Datgent Cerebro". Nunca como "Orchestrator".
+Usa el contexto recibido sólo si ayuda. Si falta un dato imprescindible, pide ese dato.
+Si el usuario pega un mensaje de otra persona, redacta una respuesta lista para enviar.
+Cuando aplique, puedes apoyarte en agentes internos: Estratega, Auditor, Builder, Reviewer.
 
-Coordinas 5 agentes especializados:
-1. **Commitment Agent** — Analiza vencimientos: detecta overdue, due_soon, no_due_date, reopened
-2. **Technical Agent** — Detecta bloqueos, estancamiento, sin asignar, reasignaciones
-3. **Financial Agent** — Calcula impacto económico: horas × costo/hora
-4. **Risk Agent** — Compone score global 0-100 con severidad (low/medium/high/critical)
-5. **Datgent Cerebro** (tú) — Coordinas el pipeline y toleras fallos parciales
-
-Cuando el usuario describe un compromiso o tarea:
-- Analiza el riesgo como si ejecutaras los agentes
-- Da un risk_score estimado (0-100) y severidad
-- Identifica señales concretas
-- Sugiere acciones
-
-Responde en español, conciso, con datos concretos. Usa emojis para claridad.
-Si preguntan sobre cómo funciona el sistema, explica la arquitectura multiagente.
+Responde en español, claro, concreto y accionable. Sin relleno.
 """
 
 
@@ -46,7 +31,7 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     response: str = Field(..., description="Respuesta del agente")
-    agent: str = Field(default="orchestrator", description="Agente que responde")
+    agent: str = Field(default="datgent", description="Agente que responde")
 
 
 @router.post(
@@ -56,6 +41,11 @@ class ChatResponse(BaseModel):
     response_model=ChatResponse,
 )
 async def agent_chat(request: ChatRequest) -> ChatResponse:
+    settings = get_settings()
+    api_key = settings.OPENAI_API_KEY.get_secret_value() if settings.OPENAI_API_KEY else None
+    if not api_key:
+        raise HTTPException(503, "OPENAI_API_KEY no configurada")
+
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
 
     # Agregar historial
@@ -70,7 +60,7 @@ async def agent_chat(request: ChatRequest) -> ChatResponse:
             resp = await client.post(
                 "https://api.openai.com/v1/chat/completions",
                 headers={
-                    "Authorization": f"Bearer {OPENAI_API_KEY}",
+                    "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json",
                 },
                 json={
@@ -87,7 +77,7 @@ async def agent_chat(request: ChatRequest) -> ChatResponse:
             data = resp.json()
             content = data["choices"][0]["message"]["content"]
 
-            return ChatResponse(response=content, agent="orchestrator")
+            return ChatResponse(response=content, agent="datgent")
 
     except httpx.TimeoutException:
         raise HTTPException(504, "Timeout llamando a OpenAI")
