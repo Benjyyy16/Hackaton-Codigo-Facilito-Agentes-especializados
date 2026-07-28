@@ -47,11 +47,44 @@ export interface Finding {
   severity: string
 }
 
+/**
+ * Escenario de recuperación. El backend manda más campos de los que la UI
+ * muestra; se tipan los opcionales para no volver a asumir de menos.
+ */
 export interface Scenario {
-  label: string
-  description: string
-  probability: number
-  impact: number
+  kind?: string
+  title?: string
+  description?: string
+  expected_delay_days?: number | null
+  expected_cost?: number | string | null
+  residual_exposure?: number | string | null
+  completion_probability?: number | null
+  client_risk?: string | null
+  technical_impact?: string | null
+  /** Campos del formato viejo, por si alguna respuesta los trae. */
+  label?: string
+  probability?: number
+  impact?: number
+}
+
+/** Un eslabón de la cadena causal. El backend lo manda como objeto. */
+export interface CausalStep {
+  step?: number
+  cause: string
+  effect: string
+  confidence?: number
+  evidence_refs?: string[]
+}
+
+/**
+ * Pre-mortem: el backend lo devuelve como objeto, no como texto. Renderizarlo
+ * directo como hijo de React tira el error #31.
+ */
+export interface PreMortem {
+  assumed_failure: string
+  failure_modes: string[]
+  early_signals: string[]
+  preventive_actions: string[]
 }
 
 export interface RiskCase {
@@ -60,8 +93,8 @@ export interface RiskCase {
   severity: string
   confidence: number
   summary: string
-  causal_chain: string[]
-  premortem: string
+  causal_chain: CausalStep[]
+  premortem: PreMortem | null
   scenarios: Scenario[]
   facts: string[]
   inferences: string[]

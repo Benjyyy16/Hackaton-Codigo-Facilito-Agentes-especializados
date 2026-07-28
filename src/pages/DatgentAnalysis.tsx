@@ -361,19 +361,49 @@ export default function DatgentAnalysis() {
                             className="overflow-hidden"
                           >
                             <div className="space-y-2 border-t-2 border-ink-100 px-4 py-3">
-                              {scenarios.map((sc, i) => (
-                                <div key={i} className="rounded-lg border-2 border-ink-100 p-3">
-                                  <div className="flex flex-wrap items-center justify-between gap-2">
-                                    <p className="text-[13px] font-bold text-ink-900">{sc.label}</p>
-                                    <span className="font-mono text-[10px] text-ink-500">
-                                      P:{Math.round(sc.probability * 100)}% I:{sc.impact}/100
-                                    </span>
+                              {scenarios.map((sc, i) => {
+                                const title = sc.title ?? sc.label ?? sc.kind ?? `Escenario ${i + 1}`
+                                const prob =
+                                  typeof sc.completion_probability === 'number'
+                                    ? sc.completion_probability
+                                    : typeof sc.probability === 'number'
+                                      ? sc.probability
+                                      : null
+                                return (
+                                  <div key={i} className="rounded-lg border-2 border-ink-100 p-3">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                      <p className="text-[13px] font-bold text-ink-900">{title}</p>
+                                      {prob !== null && (
+                                        <span className="font-mono text-[10px] text-ink-500">
+                                          prob. {Math.round(prob * 100)}%
+                                        </span>
+                                      )}
+                                    </div>
+                                    {sc.description && (
+                                      <p className="mt-0.5 text-[12px] text-ink-600">
+                                        {sc.description}
+                                      </p>
+                                    )}
+                                    <div className="mt-1.5 flex flex-wrap gap-2 font-mono text-[10px] text-ink-500">
+                                      {sc.expected_cost != null && (
+                                        <span className="rounded border border-ink-200 px-1.5 py-0.5">
+                                          costo: {String(sc.expected_cost)}
+                                        </span>
+                                      )}
+                                      {sc.expected_delay_days != null && (
+                                        <span className="rounded border border-ink-200 px-1.5 py-0.5">
+                                          +{sc.expected_delay_days}d
+                                        </span>
+                                      )}
+                                      {sc.client_risk && (
+                                        <span className="rounded border border-clay-300 px-1.5 py-0.5 text-clay-700">
+                                          {sc.client_risk}
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
-                                  <p className="mt-0.5 text-[12px] text-ink-600">
-                                    {sc.description}
-                                  </p>
-                                </div>
-                              ))}
+                                )
+                              })}
                             </div>
                           </motion.div>
                         )}
@@ -381,13 +411,41 @@ export default function DatgentAnalysis() {
                     </div>
                   )}
 
-                  {/* Pre-mortem */}
+                  {/* Pre-mortem: el backend lo manda como objeto, no como texto */}
                   {premortem && (
                     <div className="mt-3 rounded-xl border-2 border-dashed border-clay-300 bg-clay-100 p-4">
                       <p className="label-mono text-clay-700">Pre-mortem</p>
-                      <p className="mt-1 text-[12.5px] leading-relaxed text-clay-700">
-                        {premortem}
-                      </p>
+                      {premortem.assumed_failure && (
+                        <p className="mt-1 text-[12.5px] leading-relaxed text-clay-700">
+                          {premortem.assumed_failure}
+                        </p>
+                      )}
+                      {[
+                        { label: 'Modos de fallo', items: premortem.failure_modes },
+                        { label: 'Señales tempranas', items: premortem.early_signals },
+                        { label: 'Acciones preventivas', items: premortem.preventive_actions },
+                      ].map(
+                        (group) =>
+                          group.items &&
+                          group.items.length > 0 && (
+                            <div key={group.label} className="mt-2.5">
+                              <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-clay-600">
+                                {group.label}
+                              </p>
+                              <ul className="mt-1 space-y-0.5">
+                                {group.items.map((item, i) => (
+                                  <li
+                                    key={i}
+                                    className="flex items-start gap-1.5 text-[12px] text-clay-700"
+                                  >
+                                    <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-clay-500" />
+                                    <span>{item}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ),
+                      )}
                     </div>
                   )}
                 </motion.div>
@@ -449,13 +507,29 @@ export default function DatgentAnalysis() {
         {causalChain && causalChain.length > 0 && (
           <div className="mt-6 rounded-xl border-2 border-ink-200 bg-paper p-4">
             <p className="label-mono text-ink-500">Cadena causal</p>
-            <ol className="mt-2 space-y-1">
+            <ol className="mt-2 space-y-1.5">
               {causalChain.map((step, i) => (
                 <li key={i} className="flex items-start gap-2">
                   <span className="mt-0.5 shrink-0 font-mono text-[10px] font-bold text-violet-600">
                     {i + 1}.
                   </span>
-                  <span className="text-[12.5px] text-ink-700">{step}</span>
+                  <span className="text-[12.5px] text-ink-700">
+                    {/* El backend manda objetos {cause, effect}; renderizar el
+                        objeto directo tira el error #31 */}
+                    {typeof step === 'string' ? (
+                      step
+                    ) : (
+                      <>
+                        <span className="font-medium">{step.cause}</span>
+                        {step.effect && (
+                          <>
+                            {' → '}
+                            <span>{step.effect}</span>
+                          </>
+                        )}
+                      </>
+                    )}
+                  </span>
                 </li>
               ))}
             </ol>
