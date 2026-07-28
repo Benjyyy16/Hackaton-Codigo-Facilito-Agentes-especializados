@@ -1,6 +1,12 @@
 import { motion } from 'framer-motion'
 import { Brain, Compass, FileText, LineChart, ShieldCheck, Code2 } from 'lucide-react'
-import { GitHubLogo, SupabaseLogo } from '@/components/brand/Logos'
+import {
+  CodigoFacilitoLogo,
+  GitHubLogo,
+  KiroLogo,
+  OrquestaMark,
+  SupabaseLogo,
+} from '@/components/brand/Logos'
 
 /**
  * Esquema de conexión estilo plano de ingeniería: los agentes son módulos
@@ -130,6 +136,26 @@ export function AgentBlueprint() {
         <p className="max-w-[260px] font-display text-[14px] italic leading-snug text-ink-500">
           Ningún agente escribe en main sin pasar por rebiew y aprobación humana.
         </p>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ delay: 1.65 }}
+        className="mt-4 rounded-xl border-2 border-ink-900 bg-paper px-4 py-3 shadow-hard-sm"
+      >
+        <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-ink-400">
+          creada por
+        </p>
+        <p className="mt-1 text-[13px] font-extrabold leading-snug text-ink-900">
+          Benjamin Aguilar, Tomas Hernandez, Ramon Molina
+        </p>
+        <div className="mt-3 flex items-center gap-2">
+          <OrquestaMark className="h-8 w-8" />
+          <CodigoFacilitoLogo className="h-8 w-8" />
+          <KiroLogo className="h-8 w-8" />
+        </div>
       </motion.div>
     </div>
   )
