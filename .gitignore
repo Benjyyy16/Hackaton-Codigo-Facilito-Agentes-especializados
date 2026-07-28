@@ -1,5 +1,7 @@
 .env.local
 .env
+.render-env.json
+render-env.json
 *.pyc
 __pycache__/
 .venv

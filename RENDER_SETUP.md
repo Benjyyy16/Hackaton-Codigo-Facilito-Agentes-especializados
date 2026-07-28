@@ -45,13 +45,13 @@
 ### Supabase (copia exactamente)
 ```
 SUPABASE_URL
-https://hiyqrjfutgklmzbpyzob.supabase.co
+<configurar-en-render>
 
 SUPABASE_SERVICE_ROLE_KEY
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhpeXFyamZ1dGdrbG16YnB5em9iIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NTAzMTU0MCwiZXhwIjoyMTAwNjA3NTQwfQ.RvJglGo6lNDCa4qZt2TsC81B3VS-mrVgGB0n4TExFIU
+<configurar-en-render>
 
 SUPABASE_JWT_SECRET
-FVX8WXQQ2dFD$br
+<configurar-en-render>
 ```
 
 ### Jira (reemplaza con tus valores)

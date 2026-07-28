@@ -20,8 +20,8 @@ Click en "Environment" → "Add Environment Variable"
 
 #### Supabase (ya tenemos estos valores)
 ```
-SUPABASE_URL=https://hiyqrjfutgklmzbpyzob.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhpeXFyamZ1dGdrbG16YnB5em9iIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NTAzMTU0MCwiZXhwIjoyMTAwNjA3NTQwfQ.RvJglGo6lNDCa4qZt2TsC81B3VS-mrVgGB0n4TExFIU
+SUPABASE_URL=<configurar-en-render>
+SUPABASE_SERVICE_ROLE_KEY=<configurar-en-render>
 ```
 
 #### Jira (NECESITAS OBTENER ESTOS VALORES)
