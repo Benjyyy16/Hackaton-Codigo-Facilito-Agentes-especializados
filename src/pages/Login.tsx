@@ -1,19 +1,23 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { AlertTriangle, Github, Zap } from 'lucide-react'
+import { AlertTriangle, Eye, Github, Lock, Mail, X } from 'lucide-react'
 import { useAppStore } from '@/store/AppStore'
+import { OrquestaMark } from '@/components/brand/Logos'
 import { getStoredToken, oauthLoginUrl } from '@/lib/authApi'
 import { getProvenance } from '@/lib/analysisApi'
 
 export default function Login() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
-  const { user, signInDemo, signOut, sessionNotice } = useAppStore()
+  const { user, signIn, signOut, sessionNotice } = useAppStore()
 
   /** `null` mientras se consulta; luego si el backend tiene GitHub conectado. */
   const [githubReady, setGithubReady] = useState<boolean | null>(null)
   const [redirecting, setRedirecting] = useState(false)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [remember, setRemember] = useState(true)
 
   const mode = params.get('mode') === 'signup' ? 'signup' : 'login'
 
@@ -60,52 +64,71 @@ export default function Login() {
     window.location.href = oauthLoginUrl('github')
   }
 
-  function handleDemo() {
-    signInDemo()
+  function handleEmailLogin() {
+    signIn(email || 'usuario@datgent.dev')
     navigate('/app', { replace: true })
   }
 
   return (
-    <div className="grid min-h-screen place-items-center bg-ink-950 px-4 py-10">
+    <div className="grid min-h-screen place-items-center bg-ink-950/55 px-4 py-10 backdrop-blur-sm">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-sm rounded-xl border-2 border-ink-800 bg-ink-900 p-6 shadow-lg sm:p-8"
+        className="relative w-full max-w-[620px] overflow-hidden rounded-2xl border-2 border-ink-900 bg-paper p-6 shadow-hard-lg sm:p-10"
       >
+        <div className="absolute inset-x-0 top-0 h-3 bg-[repeating-linear-gradient(45deg,#ede7ff_0,#ede7ff_6px,transparent_6px,transparent_12px)]" />
+        <button
+          onClick={() => navigate('/')}
+          aria-label="Cerrar"
+          className="absolute right-5 top-5 grid h-11 w-11 place-items-center rounded-lg border-2 border-ink-900 bg-paper text-ink-900 shadow-hard-sm"
+        >
+          <X className="h-5 w-5" />
+        </button>
+
         <div className="mb-7 text-center">
-          <h1 className="font-display text-[28px] leading-none text-ink-100 sm:text-3xl">Datgent</h1>
-          <p className="mt-2 text-[13px] text-ink-400">Commitment Twin · Risk Analysis</p>
-          <p className="mt-3 font-mono text-[10px] uppercase tracking-wider text-ink-500">{title}</p>
+          <OrquestaMark className="mx-auto h-16 w-16 rotate-3 shadow-hard-sm" />
+          <h1 className="mt-5 font-display text-[34px] leading-none text-ink-900 sm:text-[40px]">
+            {mode === 'signup' ? 'Creá tu cuenta' : 'Ingresá a Datgent'}
+          </h1>
+          <p className="mt-3 text-[16px] text-ink-500">Tus tableros y agentes te están esperando.</p>
+          <p className="mt-3 font-mono text-[10px] uppercase tracking-wider text-ink-400">{title}</p>
         </div>
 
         {sessionNotice && (
           <div
             role="alert"
-            className="mb-4 rounded-lg border-2 border-clay-500 bg-clay-500/10 px-3 py-2.5"
+            className="mb-4 rounded-lg border-2 border-clay-500 bg-clay-100 px-3 py-2.5"
           >
-            <p className="text-[12px] text-clay-300">{sessionNotice}</p>
+            <p className="text-[12px] text-clay-700">{sessionNotice}</p>
           </div>
         )}
 
         {githubReady === false && (
           <div
             role="alert"
-            className="mb-4 flex items-start gap-2.5 rounded-lg border-2 border-clay-500 bg-clay-500/10 px-3 py-2.5"
+            className="mb-4 flex items-start gap-2.5 rounded-lg border-2 border-clay-500 bg-clay-100 px-3 py-2.5"
           >
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-clay-400" aria-hidden />
-            <p className="text-[12px] leading-relaxed text-clay-200">
-              El backend no tiene GitHub OAuth configurado. Podés recorrer todo el análisis con la
-              cuenta demo.
+            <p className="text-[12px] leading-relaxed text-clay-700">
+              GitHub OAuth no está disponible ahora. Podés ingresar con correo.
             </p>
           </div>
         )}
+
+        <div className="mb-5 flex items-center gap-4">
+          <span className="h-px flex-1 bg-ink-100" />
+          <span className="font-mono text-[10px] font-bold uppercase tracking-[0.24em] text-ink-300">
+            con tu cuenta
+          </span>
+          <span className="h-px flex-1 bg-ink-100" />
+        </div>
 
         <button
           onClick={handleGitHubLogin}
           disabled={redirecting}
           aria-label="Conectar con GitHub"
           aria-busy={redirecting}
-          className="flex w-full items-center justify-center gap-3 rounded-lg border-2 border-ink-700 bg-ink-800 px-4 py-3.5 text-sm font-medium text-ink-100 transition-all hover:border-violet-500 hover:bg-ink-700 focus-visible:border-violet-400 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex w-full items-center justify-center gap-3 rounded-xl border-2 border-ink-900 bg-ink-900 px-4 py-4 text-[16px] font-extrabold text-white shadow-hard-sm transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {redirecting ? (
             <span
@@ -118,28 +141,56 @@ export default function Login() {
           {redirecting ? 'Redirigiendo…' : 'Conectar con GitHub'}
         </button>
 
-        <div className="my-4 flex items-center gap-3">
-          <span className="h-px flex-1 bg-ink-800" />
-          <span className="font-mono text-[9.5px] uppercase tracking-wider text-ink-500">o</span>
-          <span className="h-px flex-1 bg-ink-800" />
-        </div>
+        <div className="mt-6 space-y-4">
+          <label className="block">
+            <span className="label-mono text-ink-400">correo</span>
+            <span className="mt-2 flex items-center gap-3 rounded-xl border-2 border-ink-900 bg-paper px-4 py-3">
+              <Mail className="h-5 w-5 text-ink-300" />
+              <input
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="tu@empresa.com"
+                className="min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-ink-300"
+              />
+            </span>
+          </label>
 
-        <button
-          onClick={handleDemo}
-          aria-label="Entrar con la cuenta de demostración"
-          className="flex w-full items-center justify-center gap-2.5 rounded-lg border-2 border-violet-600 bg-violet-600/15 px-4 py-3 text-sm font-medium text-violet-200 transition-all hover:bg-violet-600/30 focus-visible:border-violet-400 focus-visible:outline-none"
-        >
-          <Zap className="h-4 w-4" aria-hidden />
-          Entrar con la cuenta demo
-        </button>
+          <label className="block">
+            <span className="label-mono text-ink-400">contraseña</span>
+            <span className="mt-2 flex items-center gap-3 rounded-xl border-2 border-ink-900 bg-paper px-4 py-3">
+              <Lock className="h-5 w-5 text-ink-300" />
+              <input
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                type="password"
+                placeholder="••••••••"
+                className="min-w-0 flex-1 bg-transparent text-[15px] outline-none placeholder:text-ink-300"
+              />
+              <Eye className="h-5 w-5 text-ink-400" />
+            </span>
+          </label>
 
-        <div className="mt-6 space-y-2 rounded-lg bg-ink-950/50 px-4 py-3">
-          <p className="text-[11.5px] leading-relaxed text-ink-400">
-            Datgent analiza riesgos en tus repositorios de GitHub. Para comenzar, conectá tu cuenta.
-          </p>
-          <p className="font-mono text-[10px] uppercase tracking-wider text-ink-500">
-            ✓ Solo lectura · ✓ Sin compartir datos
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <label className="flex items-center gap-2 text-[14px] font-semibold text-ink-600">
+              <input
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+                type="checkbox"
+                className="h-5 w-5 accent-violet-600"
+              />
+              Mantener sesión
+            </label>
+            <button className="text-[14px] font-extrabold text-violet-700 underline">
+              ¿Olvidaste tu contraseña?
+            </button>
+          </div>
+
+          <button
+            onClick={handleEmailLogin}
+            className="w-full rounded-xl border-2 border-ink-900 bg-violet-600 px-4 py-4 text-[17px] font-extrabold text-white shadow-hard transition-transform hover:-translate-y-0.5"
+          >
+            Ingresá
+          </button>
         </div>
       </motion.div>
     </div>
