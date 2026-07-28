@@ -67,6 +67,7 @@ function BoardAiAssistant({ project, view }: { project: Project; view: 'canvas' 
   ])
   const [draft, setDraft] = useState('')
   const [loading, setLoading] = useState(false)
+  const [runningAgent, setRunningAgent] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
   const context = useMemo(() => projectContext(project, view), [project, view])
@@ -74,7 +75,7 @@ function BoardAiAssistant({ project, view }: { project: Project; view: 'canvas' 
   useEffect(() => () => abortRef.current?.abort(), [])
 
   const ask = useCallback(
-    async (raw?: string) => {
+    async (raw?: string, agentName?: string) => {
       const text = (raw ?? draft).trim()
       if (!text || loading) return
       const userMessage: ChatMessage = { role: 'user', content: text }
@@ -83,6 +84,7 @@ function BoardAiAssistant({ project, view }: { project: Project; view: 'canvas' 
       setDraft('')
       setErr(null)
       setLoading(true)
+      setRunningAgent(agentName ?? 'Datgent Cerebro')
       abortRef.current?.abort()
       const controller = new AbortController()
       abortRef.current = controller
@@ -94,6 +96,7 @@ function BoardAiAssistant({ project, view }: { project: Project; view: 'canvas' 
         setErr(errorMessage(error, 'No pude consultar la IA.'))
       } finally {
         setLoading(false)
+        setRunningAgent(null)
       }
     },
     [context, draft, loading, messages],
@@ -117,7 +120,7 @@ function BoardAiAssistant({ project, view }: { project: Project; view: 'canvas' 
           {agentPrompts.map(([agent, prompt]) => (
             <button
               key={agent}
-              onClick={() => void ask(`${agent}: ${prompt}`)}
+              onClick={() => void ask(`${agent}: ${prompt}`, agent)}
               className="rounded border-2 border-ink-900 bg-paper px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-ink-700 transition-colors hover:bg-violet-600 hover:text-white"
             >
               {agent}
@@ -128,6 +131,7 @@ function BoardAiAssistant({ project, view }: { project: Project; view: 'canvas' 
 
       <div className="grid gap-0 lg:grid-cols-[1fr_280px]">
         <div className="p-4">
+          {runningAgent && <AgentRunTerminal agent={runningAgent} project={project.name} />}
           <div className="max-h-[260px] space-y-2 overflow-y-auto rounded-lg border-2 border-ink-100 bg-paper-100 p-3">
             {messages.map((m, i) => (
               <div key={i} className={m.role === 'user' ? 'text-right' : 'text-left'}>
@@ -184,6 +188,43 @@ function BoardAiAssistant({ project, view }: { project: Project; view: 'canvas' 
         </aside>
       </div>
     </section>
+  )
+}
+
+function AgentRunTerminal({ agent, project }: { agent: string; project: string }) {
+  const lines = [
+    `ejecutando ${agent.toLowerCase()} sobre ${project}...`,
+    'leyendo canvas + kanban + repo...',
+    'corriendo heurísticas de riesgo...',
+    'generando respuesta con Datgent Cerebro...',
+  ]
+
+  return (
+    <div className="mb-3 overflow-hidden rounded-xl border-2 border-ink-900 bg-[#090711] shadow-hard">
+      <div className="flex h-9 items-center gap-2 border-b border-white/10 px-3">
+        <span className="h-2.5 w-2.5 rounded-full bg-ink-500" />
+        <span className="h-2.5 w-2.5 rounded-full bg-ink-500" />
+        <span className="h-2.5 w-2.5 rounded-full bg-mint-500" />
+        <span className="ml-3 font-mono text-[10px] uppercase tracking-[0.2em] text-white/45">
+          datgent · bitácora
+        </span>
+      </div>
+      <div className="space-y-1 px-5 py-4 font-mono text-[13px] text-mint-300">
+        {lines.map((line, i) => (
+          <motion.p
+            key={line}
+            initial={{ opacity: 0, x: -6 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: i * 0.18 }}
+            className="flex items-center gap-2"
+          >
+            <span className="text-white/35">$</span>
+            <span>{line}</span>
+            {i === lines.length - 1 && <span className="h-5 w-2 animate-pulse bg-violet-500" />}
+          </motion.p>
+        ))}
+      </div>
+    </div>
   )
 }
 
