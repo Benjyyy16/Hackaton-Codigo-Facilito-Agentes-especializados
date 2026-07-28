@@ -1,5 +1,9 @@
 <div align="center">
-  <img src="public/datgent-logo.png" alt="Datgent" width="96" />
+  <p>
+    <img src="public/datgent-logo.png" alt="Datgent" width="86" />
+    <img src="public/codigo-facilito-logo.png" alt="Código Facilito" width="86" />
+    <img src="public/kiro-logo.png" alt="Kiro" width="86" />
+  </p>
 
 # Datgent
 
@@ -196,9 +200,16 @@ Creá un `.env.local` (está en `.gitignore`):
 # URL absoluta del backend. Omitila para usar http://localhost:8000.
 # Dejala vacía en producción para pegar a rutas relativas vía proxy de Vercel.
 VITE_BACKEND_URL=http://localhost:8000
+
+# Supabase frontend, si alguna vista cliente lo requiere.
+# Usar solo anon/public key. Nunca service_role en frontend.
+VITE_SUPABASE_URL=https://<project-ref>.supabase.co
+VITE_SUPABASE_ANON_KEY=<supabase-anon-key>
 ```
 
 Solo `VITE_BACKEND_URL` afecta al frontend. Del lado del backend hacen falta, entre otras, `OPENAI_API_KEY` (agentes LLM), `FRONTEND_URL` (CORS y destino del callback OAuth), `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` (OAuth y lectura de repos) y `DEMO_MODE_ENABLED` (habilita `simulate` y `reset`).
+
+La `SUPABASE_SERVICE_ROLE_KEY` es secreta y debe vivir solo en el backend o en el panel de Render/Supabase. No se debe commitear ni exponer en Vercel como variable `VITE_*`.
 
 > `.env.local` en este workspace puede contener un token OIDC generado por la CLI de Vercel. No se versiona y no hace falta para desarrollar.
 
