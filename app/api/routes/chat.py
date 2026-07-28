@@ -23,6 +23,8 @@ Cuando aplique, puedes apoyarte en agentes internos: Estratega, Auditor, Builder
 Responde en español, claro, concreto y accionable. Sin relleno.
 """
 
+FALLBACK_MODEL = "gpt-4o-mini"
+
 
 class ChatRequest(BaseModel):
     message: str = Field(..., description="Mensaje del usuario")
@@ -71,19 +73,27 @@ async def agent_chat(request: ChatRequest) -> ChatResponse:
 
     try:
         async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.post(
-                "https://api.openai.com/v1/responses",
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": settings.OPENAI_MODEL,
-                    "instructions": SYSTEM_PROMPT,
-                    "input": messages,
-                    "max_output_tokens": 350,
-                },
-            )
+            models = [settings.OPENAI_MODEL]
+            if FALLBACK_MODEL not in models:
+                models.append(FALLBACK_MODEL)
+
+            for model in models:
+                resp = await client.post(
+                    "https://api.openai.com/v1/responses",
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": model,
+                        "instructions": SYSTEM_PROMPT,
+                        "input": messages,
+                        "max_output_tokens": 350,
+                    },
+                )
+
+                if resp.status_code != 400:
+                    break
 
             if resp.status_code != 200:
                 raise HTTPException(502, f"Error OpenAI: {resp.status_code}")
