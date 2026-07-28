@@ -36,6 +36,7 @@ export default function ProjectBoard() {
   const [view, setView] = useState<'canvas' | 'kanban'>('canvas')
   const [connecting, setConnecting] = useState(false)
   const [dragOver, setDragOver] = useState<TaskStatus | null>(null)
+  const [dbOpen, setDbOpen] = useState(false)
 
   const project = id ? getProject(id) : undefined
   if (!project) return <Navigate to="/app" replace />
@@ -93,10 +94,14 @@ export default function ProjectBoard() {
                 </Button>
               )}
               {project.database && (
-                <span className="inline-flex items-center gap-1.5 rounded border-2 border-ink-900 bg-paper px-2.5 py-1 font-mono text-[11px] font-medium text-ink-800">
+                <button
+                  onClick={() => setDbOpen((v) => !v)}
+                  aria-expanded={dbOpen}
+                  className="inline-flex items-center gap-1.5 rounded border-2 border-ink-900 bg-paper px-2.5 py-1 font-mono text-[11px] font-medium text-ink-800 shadow-hard-sm transition-transform hover:-translate-y-0.5"
+                >
                   <SupabaseLogo className="h-3.5 w-3.5" />
                   {project.database.tables} tablas
-                </span>
+                </button>
               )}
             </div>
           </div>
@@ -213,6 +218,39 @@ export default function ProjectBoard() {
                   Conectar ahora
                 </Button>
               </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {dbOpen && project.database && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              className="mt-4 rounded-xl border-2 border-mint-500 bg-mint-50 p-4 shadow-hard-sm"
+            >
+              <div className="grid gap-3 sm:grid-cols-3">
+                {[
+                  ['tablas', project.database.tables],
+                  ['migraciones', project.database.migrations],
+                  ['RLS', project.database.rlsEnabled ? 'activo' : 'pendiente'],
+                ].map(([label, value]) => (
+                  <button
+                    key={label}
+                    onClick={() => setView('canvas')}
+                    className="rounded-lg border-2 border-ink-900 bg-paper p-3 text-left transition-transform hover:-translate-y-0.5"
+                  >
+                    <p className="label-mono text-ink-400">{label}</p>
+                    <p className="mt-1 font-display text-[24px] leading-none text-ink-900">
+                      {value}
+                    </p>
+                  </button>
+                ))}
+              </div>
+              <p className="mt-3 font-mono text-[10.5px] uppercase tracking-wider text-mint-700">
+                Click en una métrica enfoca el canvas de datos.
+              </p>
             </motion.div>
           )}
         </AnimatePresence>

@@ -12,6 +12,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import { AppShell } from '@/components/app/AppShell'
+import { CompanyAiChat } from '@/components/app/CompanyAiChat'
 import { NewProjectModal } from '@/components/app/NewProjectModal'
 import { Button } from '@/components/ui/Button'
 import { Avatar } from '@/components/ui/Avatar'
@@ -207,7 +208,7 @@ const ProjectCard = memo(function ProjectCard({
 })
 
 export default function Dashboard() {
-  const { projects, collaborators, user } = useAppStore()
+  const { projects, collaborators, user, createProject } = useAppStore()
   const { projects: apiProjects, loading: apiLoading, error: apiError } = useProjects()
   const [modalOpen, setModalOpen] = useState(false)
   const navigate = useNavigate()
@@ -250,6 +251,15 @@ export default function Dashboard() {
 
   const openModal = useCallback(() => setModalOpen(true), [])
   const closeModal = useCallback(() => setModalOpen(false), [])
+  const isRealGithubSession = Boolean(user && !user.isDemo)
+  const createExampleRepo = useCallback(() => {
+    const project = createProject({
+      name: 'Repo de ejemplo Datgent',
+      description: 'Sandbox para probar agentes, riesgos y decisiones con GitHub conectado.',
+      repoFullName: 'Benjyyy16/datgent-ejemplo',
+    })
+    navigate(`/app/proyecto/${project.id}`)
+  }, [createProject, navigate])
 
   return (
     <AppShell onNewProject={openModal}>
@@ -261,7 +271,7 @@ export default function Dashboard() {
               {user ? `sesión · ${user.name.split(' ')[0]}` : 'bienvenido'}
             </p>
             <h1 className="mt-2 font-display text-[32px] leading-none tracking-tightest text-ink-900 sm:text-[46px]">
-              Tus tableros
+              {isRealGithubSession ? 'Datgent IA' : 'Tus tableros'}
             </h1>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -279,8 +289,14 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {isRealGithubSession && (
+          <div className="mt-8">
+            <CompanyAiChat onCreateExample={createExampleRepo} />
+          </div>
+        )}
+
         {/* Estado de la API */}
-        {apiLoading && (
+        {!isRealGithubSession && apiLoading && (
           <div
             className="mt-4 flex items-center gap-2 rounded-lg border-2 border-ink-200 bg-paper px-3 py-2"
             role="status"
@@ -290,14 +306,14 @@ export default function Dashboard() {
             <p className="text-xs text-ink-500">Sincronizando proyectos con el backend…</p>
           </div>
         )}
-        {usingApi && (
+        {!isRealGithubSession && usingApi && (
           <div className="mt-4 rounded-lg border-2 border-mint-500 bg-mint-50 px-3 py-2">
             <p className="text-xs text-mint-700">
               ✓ Conectado a API — {apiProjects.length} proyecto(s) en backend
             </p>
           </div>
         )}
-        {apiError && !apiLoading && (
+        {!isRealGithubSession && apiError && !apiLoading && (
           <div className="mt-4 flex items-start gap-2 rounded-lg border-2 border-ink-200 bg-paper px-3 py-2">
             <CloudOff className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-400" aria-hidden />
             <p className="text-xs text-ink-500">API no disponible — mostrando datos locales</p>
@@ -305,7 +321,7 @@ export default function Dashboard() {
         )}
 
         {/* Panel de resumen: ledger de 4 celdas */}
-        <div className="mt-8 overflow-hidden rounded-xl border-2 border-ink-900 bg-paper shadow-hard">
+        {!isRealGithubSession && <div className="mt-8 overflow-hidden rounded-xl border-2 border-ink-900 bg-paper shadow-hard">
           <div className="grid grid-cols-2 divide-x-2 divide-y-2 divide-ink-100 sm:grid-cols-4 sm:divide-y-0">
             {stats.map((s, i) => (
               <motion.div
@@ -325,10 +341,10 @@ export default function Dashboard() {
               </motion.div>
             ))}
           </div>
-        </div>
+        </div>}
 
         {/* Proyectos */}
-        <div className="mt-8 grid gap-4 sm:mt-10 sm:gap-5 lg:grid-cols-2">
+        {!isRealGithubSession && <div className="mt-8 grid gap-4 sm:mt-10 sm:gap-5 lg:grid-cols-2">
           {projects.map((p, i) => (
             <ProjectCard
               key={p.id}
@@ -357,9 +373,9 @@ export default function Dashboard() {
               </span>
             </span>
           </motion.button>
-        </div>
+        </div>}
 
-        {user?.isDemo && (
+        {!isRealGithubSession && user?.isDemo && (
           <div className="mt-10 flex justify-center">
             <Stamp tone="violet">datos de demostración</Stamp>
           </div>

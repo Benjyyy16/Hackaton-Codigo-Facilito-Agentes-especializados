@@ -12,6 +12,7 @@ import {
   RotateCw,
 } from 'lucide-react'
 import { AppShell } from '@/components/app/AppShell'
+import { AnalysisTerminal } from '@/components/app/CompanyAiChat'
 import { Button } from '@/components/ui/Button'
 import { WsIndicator } from '@/components/datgent/WsIndicator'
 import { CerebroPanel } from '@/components/datgent/CerebroPanel'
@@ -24,6 +25,7 @@ import { CardSkeleton, LoadingRegion } from '@/components/ui/Skeleton'
 import { useAnalysis } from '@/hooks/useAnalysis'
 import { useWsEvents } from '@/hooks/useWsEvents'
 import { useAppStore } from '@/store/AppStore'
+import type { LiveAgentRecord } from '@/store/analysisTypes'
 
 type Tab = 'agentes' | 'evidencias' | 'decisiones' | 'timeline'
 
@@ -33,6 +35,49 @@ const tabs: { id: Tab; label: string }[] = [
   { id: 'decisiones', label: 'Decisiones' },
   { id: 'timeline', label: 'Timeline' },
 ]
+
+const availableAgents = [
+  {
+    agent: 'Jira Agent',
+    state: 'waiting',
+    duration_ms: 0,
+    risk_score: 0,
+    severity: 'low',
+    confidence: 0,
+    findings_count: 0,
+    missing_information: [],
+  },
+  {
+    agent: 'Code Agent',
+    state: 'waiting',
+    duration_ms: 0,
+    risk_score: 0,
+    severity: 'low',
+    confidence: 0,
+    findings_count: 0,
+    missing_information: [],
+  },
+  {
+    agent: 'Finance Agent',
+    state: 'waiting',
+    duration_ms: 0,
+    risk_score: 0,
+    severity: 'low',
+    confidence: 0,
+    findings_count: 0,
+    missing_information: [],
+  },
+  {
+    agent: 'Database Agent',
+    state: 'waiting',
+    duration_ms: 0,
+    risk_score: 0,
+    severity: 'low',
+    confidence: 0,
+    findings_count: 0,
+    missing_information: [],
+  },
+] satisfies LiveAgentRecord[]
 
 export default function DatgentAnalysis() {
   const [tab, setTab] = useState<Tab>('agentes')
@@ -243,7 +288,13 @@ export default function DatgentAnalysis() {
         {/* Provenance */}
         {provenance.length > 0 && (
           <div className="mt-4">
-            <ProvenanceBanner providers={provenance} isDemoSession={isDemoData} />
+            <ProvenanceBanner providers={provenance} isDemoSession={Boolean(user?.isDemo && isDemoData)} />
+          </div>
+        )}
+
+        {(isRunning || isStarting) && (
+          <div className="mt-4">
+            <AnalysisTerminal active />
           </div>
         )}
 
@@ -328,9 +379,11 @@ export default function DatgentAnalysis() {
                       ))}
                     </div>
                   ) : (
-                    <p className="rounded-xl border-2 border-dashed border-ink-200 px-4 py-10 text-center font-mono text-[10.5px] uppercase tracking-wider text-ink-300">
-                      Inicia un análisis para ver los agentes
-                    </p>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {availableAgents.map((ag, i) => (
+                        <AgentCard key={ag.agent} agent={ag} index={i} />
+                      ))}
+                    </div>
                   )}
 
                   {/* Escenarios */}

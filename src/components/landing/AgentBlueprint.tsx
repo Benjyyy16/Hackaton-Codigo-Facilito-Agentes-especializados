@@ -128,7 +128,7 @@ export function AgentBlueprint() {
           />
         </svg>
         <p className="max-w-[260px] font-display text-[14px] italic leading-snug text-ink-500">
-          Ningún agente escribe en main sin pasar por review y aprobación humana.
+          Ningún agente escribe en main sin pasar por rebiew y aprobación humana.
         </p>
       </motion.div>
     </div>

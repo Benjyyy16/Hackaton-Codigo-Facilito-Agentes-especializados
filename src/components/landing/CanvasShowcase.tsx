@@ -243,7 +243,7 @@ export function CanvasShowcase() {
                       animate={{ opacity: 1 }}
                       className="font-mono text-[11.5px] text-white/30"
                     >
-                      esperando actividad en main
+                      Ningún agente escribe en main sin pasar por rebiew
                       <span className="ml-0.5 animate-blink">▊</span>
                     </motion.p>
                   )}
