@@ -14,11 +14,10 @@ import {
 import { AppShell } from '@/components/app/AppShell'
 import { CompanyAiChat } from '@/components/app/CompanyAiChat'
 import { NewProjectModal } from '@/components/app/NewProjectModal'
-import { LiveProductShowcase } from '@/components/landing/LiveProductShowcase'
 import { Button } from '@/components/ui/Button'
 import { Avatar } from '@/components/ui/Avatar'
 import { Odometer, Stamp } from '@/components/ui/Bits'
-import { CodigoFacilitoLogo, GitHubLogo, KiroLogo, OrquestaMark, SupabaseLogo } from '@/components/brand/Logos'
+import { GitHubLogo, SupabaseLogo } from '@/components/brand/Logos'
 import { useAppStore } from '@/store/AppStore'
 import { useProjects } from '@/hooks/useProjects'
 import { cn } from '@/lib/cn'
@@ -208,24 +207,6 @@ const ProjectCard = memo(function ProjectCard({
   )
 })
 
-function DashboardCredits() {
-  return (
-    <div className="mt-8 rounded-xl border-2 border-ink-900 bg-paper p-4 shadow-hard-sm">
-      <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-ink-400">
-        creada por
-      </p>
-      <p className="mt-1 text-[14px] font-extrabold text-ink-900">
-        Benjamin Aguilar, Tomas Hernandez, Ramon Molina
-      </p>
-      <div className="mt-3 flex items-center gap-2">
-        <OrquestaMark className="h-9 w-9" />
-        <CodigoFacilitoLogo className="h-9 w-9" />
-        <KiroLogo className="h-9 w-9" />
-      </div>
-    </div>
-  )
-}
-
 export default function Dashboard() {
   const { projects, collaborators, user, createProject } = useAppStore()
   const { projects: apiProjects, loading: apiLoading, error: apiError } = useProjects()
@@ -308,11 +289,9 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {user && (
-          <div className="mt-8 space-y-8">
-            {isRealGithubSession && <CompanyAiChat onCreateExample={createExampleRepo} />}
-            <LiveProductShowcase embedded />
-            <DashboardCredits />
+        {isRealGithubSession && (
+          <div className="mt-6">
+            <CompanyAiChat onCreateExample={createExampleRepo} compact />
           </div>
         )}
 
@@ -342,7 +321,7 @@ export default function Dashboard() {
         )}
 
         {/* Panel de resumen: ledger de 4 celdas */}
-        {!isRealGithubSession && <div className="mt-8 overflow-hidden rounded-xl border-2 border-ink-900 bg-paper shadow-hard">
+        <div className="mt-8 overflow-hidden rounded-xl border-2 border-ink-900 bg-paper shadow-hard">
           <div className="grid grid-cols-2 divide-x-2 divide-y-2 divide-ink-100 sm:grid-cols-4 sm:divide-y-0">
             {stats.map((s, i) => (
               <motion.div
@@ -362,10 +341,10 @@ export default function Dashboard() {
               </motion.div>
             ))}
           </div>
-        </div>}
+        </div>
 
         {/* Proyectos */}
-        {!isRealGithubSession && <div className="mt-8 grid gap-4 sm:mt-10 sm:gap-5 lg:grid-cols-2">
+        <div className="mt-8 grid gap-4 sm:mt-10 sm:gap-5 lg:grid-cols-2">
           {projects.map((p, i) => (
             <ProjectCard
               key={p.id}
@@ -394,7 +373,7 @@ export default function Dashboard() {
               </span>
             </span>
           </motion.button>
-        </div>}
+        </div>
 
         {!isRealGithubSession && user?.isDemo && (
           <div className="mt-10 flex justify-center">

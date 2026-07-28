@@ -3,6 +3,9 @@ import { useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Brain,
+  Code2,
+  Database,
+  Landmark,
   Play,
   Zap,
   RefreshCw,
@@ -10,6 +13,7 @@ import {
   ChevronUp,
   CloudOff,
   RotateCw,
+  Ticket,
 } from 'lucide-react'
 import { AppShell } from '@/components/app/AppShell'
 import { AnalysisTerminal } from '@/components/app/CompanyAiChat'
@@ -25,7 +29,6 @@ import { CardSkeleton, LoadingRegion } from '@/components/ui/Skeleton'
 import { useAnalysis } from '@/hooks/useAnalysis'
 import { useWsEvents } from '@/hooks/useWsEvents'
 import { useAppStore } from '@/store/AppStore'
-import type { LiveAgentRecord } from '@/store/analysisTypes'
 
 type Tab = 'agentes' | 'evidencias' | 'decisiones' | 'timeline'
 
@@ -36,48 +39,53 @@ const tabs: { id: Tab; label: string }[] = [
   { id: 'timeline', label: 'Timeline' },
 ]
 
-const availableAgents = [
-  {
-    agent: 'Jira Agent',
-    state: 'waiting',
-    duration_ms: 0,
-    risk_score: 0,
-    severity: 'low',
-    confidence: 0,
-    findings_count: 0,
-    missing_information: [],
-  },
-  {
-    agent: 'Code Agent',
-    state: 'waiting',
-    duration_ms: 0,
-    risk_score: 0,
-    severity: 'low',
-    confidence: 0,
-    findings_count: 0,
-    missing_information: [],
-  },
-  {
-    agent: 'Finance Agent',
-    state: 'waiting',
-    duration_ms: 0,
-    risk_score: 0,
-    severity: 'low',
-    confidence: 0,
-    findings_count: 0,
-    missing_information: [],
-  },
-  {
-    agent: 'Database Agent',
-    state: 'waiting',
-    duration_ms: 0,
-    risk_score: 0,
-    severity: 'low',
-    confidence: 0,
-    findings_count: 0,
-    missing_information: [],
-  },
-] satisfies LiveAgentRecord[]
+const showcaseAgents = [
+  { name: 'Agente Jira', score: 90, meta: '4 hallazgos · confianza 94%', sev: 'crítico', Icon: Ticket, cls: 'text-violet-600 bg-violet-50' },
+  { name: 'Agente Código', score: 85, meta: '7 hallazgos · confianza 95%', sev: 'crítico', Icon: Code2, cls: 'text-ink-700 bg-ink-100' },
+  { name: 'Agente Finanzas', score: 100, meta: '3 hallazgos · confianza 81%', sev: 'crítico', Icon: Landmark, cls: 'text-clay-700 bg-clay-100' },
+  { name: 'Agente Datos', score: 75, meta: '1 hallazgo · confianza 100%', sev: 'alto', Icon: Database, cls: 'text-mint-700 bg-mint-50' },
+] as const
+
+function AgentShowcaseCards() {
+  return (
+    <div>
+      <div className="mb-4">
+        <h2 className="font-display text-[30px] leading-none text-ink-900">Agentes</h2>
+        <p className="mt-2 text-[14px] text-ink-500">
+          Un agente sin señal de su proveedor no inventa: muestra qué no pudo mirar.
+        </p>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {showcaseAgents.map(({ name, score, meta, sev, Icon, cls }) => (
+          <article
+            key={name}
+            className="group rounded-xl border-2 border-ink-900 bg-paper p-5 shadow-hard-sm transition-transform hover:-translate-y-1 hover:border-violet-600"
+          >
+            <div className="flex items-start justify-between">
+              <span
+                className={`grid h-12 w-12 place-items-center rounded-lg border-2 border-ink-900 ${cls} transition-transform group-hover:-rotate-6`}
+              >
+                <Icon className="h-6 w-6" />
+              </span>
+              <span className="rounded-full border border-clay-400 bg-clay-50 px-2 py-0.5 font-mono text-[10px] font-bold uppercase text-clay-700">
+                {sev}
+              </span>
+            </div>
+            <h3 className="mt-8 text-[19px] font-extrabold text-ink-900">{name}</h3>
+            <p className="mt-3 font-display text-[38px] leading-none text-ink-900">
+              {score}<span className="text-[14px] text-ink-300">/100</span>
+            </p>
+            <p className="mt-4 font-mono text-[11px] text-ink-500">{meta}</p>
+            <div className="mt-5 h-px border-t-2 border-dashed border-ink-100" />
+            <p className="mt-4 font-mono text-[10px] font-bold uppercase tracking-wider text-violet-700">
+              Ver evidencia →
+            </p>
+          </article>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 export default function DatgentAnalysis() {
   const [tab, setTab] = useState<Tab>('agentes')
@@ -379,11 +387,7 @@ export default function DatgentAnalysis() {
                       ))}
                     </div>
                   ) : (
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      {availableAgents.map((ag, i) => (
-                        <AgentCard key={ag.agent} agent={ag} index={i} />
-                      ))}
-                    </div>
+                    <AgentShowcaseCards />
                   )}
 
                   {/* Escenarios */}

@@ -15,8 +15,10 @@ const starter: ChatMessage[] = [
 
 export function CompanyAiChat({
   onCreateExample,
+  compact = false,
 }: {
   onCreateExample: () => void
+  compact?: boolean
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>(starter)
   const [draft, setDraft] = useState('')
@@ -49,23 +51,25 @@ export function CompanyAiChat({
 
   return (
     <section className="overflow-hidden rounded-xl border-2 border-ink-900 bg-paper shadow-hard">
-      <div className="grid gap-0 lg:grid-cols-[1fr_320px]">
-        <div className="p-4 sm:p-5">
+      <div className={compact ? '' : 'grid gap-0 lg:grid-cols-[1fr_320px]'}>
+        <div className={compact ? 'p-3 sm:p-4' : 'p-4 sm:p-5'}>
           <div className="flex items-center gap-2">
             <span className="grid h-9 w-9 place-items-center rounded-lg border-2 border-ink-900 bg-violet-600 text-white">
               <Bot className="h-4 w-4" />
             </span>
             <div>
               <p className="label-mono text-ink-400">chat ia para empresas</p>
-              <h2 className="text-[20px] font-extrabold text-ink-900">Habla con Datgent</h2>
+              <h2 className={compact ? 'text-[16px] font-extrabold text-ink-900' : 'text-[20px] font-extrabold text-ink-900'}>
+                Habla con Datgent
+              </h2>
             </div>
           </div>
 
-          <div className="mt-4 max-h-[360px] space-y-3 overflow-y-auto rounded-lg border-2 border-ink-100 bg-paper-100 p-3">
+          <div className={compact ? 'mt-3 max-h-[115px] space-y-2 overflow-y-auto rounded-lg border-2 border-ink-100 bg-paper-100 p-2' : 'mt-4 max-h-[360px] space-y-3 overflow-y-auto rounded-lg border-2 border-ink-100 bg-paper-100 p-3'}>
             {messages.map((m, i) => (
               <div key={i} className={m.role === 'user' ? 'text-right' : 'text-left'}>
                 <p
-                  className={`inline-block max-w-[88%] rounded-lg border-2 px-3 py-2 text-[13px] leading-relaxed ${
+                  className={`inline-block max-w-[88%] rounded-lg border-2 px-3 py-2 ${compact ? 'text-[12px]' : 'text-[13px]'} leading-relaxed ${
                     m.role === 'user'
                       ? 'border-violet-600 bg-violet-600 text-white'
                       : 'border-ink-900 bg-paper text-ink-800'
@@ -102,7 +106,7 @@ export function CompanyAiChat({
           </div>
         </div>
 
-        <aside className="border-t-2 border-ink-900 bg-violet-50 p-4 lg:border-l-2 lg:border-t-0">
+        {!compact && <aside className="border-t-2 border-ink-900 bg-violet-50 p-4 lg:border-l-2 lg:border-t-0">
           <Sparkles className="h-5 w-5 text-violet-600" />
           <p className="mt-3 text-[18px] font-extrabold leading-tight text-ink-900">
             ¿Quieres crear un repo de ejemplo para probar?
@@ -116,7 +120,7 @@ export function CompanyAiChat({
           >
             Crear repo de ejemplo
           </button>
-        </aside>
+        </aside>}
       </div>
     </section>
   )
