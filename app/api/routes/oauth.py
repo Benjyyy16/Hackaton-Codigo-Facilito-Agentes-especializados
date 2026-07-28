@@ -24,36 +24,48 @@ router = APIRouter(prefix="/oauth", tags=["oauth"])
 
 # ── Config por provider ──────────────────────────────────────────────────────
 
+
+def _secret_value(settings: Settings, name: str) -> str:
+    """Devuelve el valor real de un ``SecretStr`` sin filtrarlo en logs."""
+    value = getattr(settings, name, None)
+    if value is None:
+        return ""
+    getter = getattr(value, "get_secret_value", None)
+    return str(getter() if getter else value)
+
+
 def _cfg(settings: Settings) -> dict:
-    base = str(getattr(settings, "APP_BASE_URL", "https://hackaton-codigo-facilito-agentes.onrender.com"))
+    base = str(getattr(settings, "APP_BASE_URL", "https://hackaton-codigo-facilito-agentes.onrender.com")).rstrip("/")
     return {
         "github": {
-            "client_id":     getattr(settings, "GITHUB_CLIENT_ID", ""),
-            "client_secret": getattr(settings, "GITHUB_CLIENT_SECRET", ""),
+            "client_id":     getattr(settings, "GITHUB_CLIENT_ID", "") or "",
+            "client_secret": _secret_value(settings, "GITHUB_CLIENT_SECRET"),
             "authorize_url": "https://github.com/login/oauth/authorize",
             "token_url":     "https://github.com/login/oauth/access_token",
             "scope":         "repo read:user",
-            "callback":      f"{base}/oauth/github/callback",
+            # Una OAuth App clásica de GitHub admite un solo callback. Login y
+            # vinculación comparten esta ruta y se distinguen mediante `state`.
+            "callback":      f"{base}/auth/oauth/github/callback",
         },
         "notion": {
-            "client_id":     getattr(settings, "NOTION_CLIENT_ID", ""),
-            "client_secret": getattr(settings, "NOTION_CLIENT_SECRET", ""),
+            "client_id":     getattr(settings, "NOTION_CLIENT_ID", "") or "",
+            "client_secret": _secret_value(settings, "NOTION_CLIENT_SECRET"),
             "authorize_url": "https://api.notion.com/v1/oauth/authorize",
             "token_url":     "https://api.notion.com/v1/oauth/token",
             "scope":         "",
             "callback":      f"{base}/oauth/notion/callback",
         },
         "slack": {
-            "client_id":     getattr(settings, "SLACK_CLIENT_ID", ""),
-            "client_secret": getattr(settings, "SLACK_CLIENT_SECRET", ""),
+            "client_id":     getattr(settings, "SLACK_CLIENT_ID", "") or "",
+            "client_secret": _secret_value(settings, "SLACK_CLIENT_SECRET"),
             "authorize_url": "https://slack.com/oauth/v2/authorize",
             "token_url":     "https://slack.com/api/oauth.v2.access",
             "scope":         "chat:write channels:read",
             "callback":      f"{base}/oauth/slack/callback",
         },
         "vercel": {
-            "client_id":     getattr(settings, "VERCEL_CLIENT_ID", ""),
-            "client_secret": getattr(settings, "VERCEL_CLIENT_SECRET", ""),
+            "client_id":     getattr(settings, "VERCEL_CLIENT_ID", "") or "",
+            "client_secret": _secret_value(settings, "VERCEL_CLIENT_SECRET"),
             "authorize_url": "https://vercel.com/integrations/vercel/consent",
             "token_url":     "https://api.vercel.com/v2/oauth/access_token",
             "scope":         "",
@@ -69,11 +81,33 @@ SettingsDep = Annotated[Settings, Depends(get_settings_dep)]
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
-def _state_token(user_id: str) -> str:
-    """CSRF token firmado con timestamp."""
+def _state_token(user_id: str, client_secret: str) -> str:
+    """State de integración firmado y válido por 15 minutos."""
     ts = str(int(time.time()))
-    sig = hmac.new(user_id.encode(), ts.encode(), hashlib.sha256).hexdigest()[:16]
-    return f"{ts}.{sig}"
+    payload = f"{user_id}|{ts}".encode()
+    sig = hmac.new(client_secret.encode(), payload, hashlib.sha256).hexdigest()
+    return f"integration|{user_id}|{ts}|{sig}"
+
+
+def _user_from_state(state: str, client_secret: str) -> str:
+    """Valida propósito, expiración y firma del state; devuelve el user_id."""
+    try:
+        purpose, user_id, ts_raw, signature = state.split("|", 3)
+        timestamp = int(ts_raw)
+    except (TypeError, ValueError):
+        raise HTTPException(400, "State OAuth inválido") from None
+
+    if purpose != "integration" or not user_id:
+        raise HTTPException(400, "State OAuth inválido")
+    if abs(int(time.time()) - timestamp) > 15 * 60:
+        raise HTTPException(400, "State OAuth vencido. Volvé a conectar GitHub.")
+
+    payload = f"{user_id}|{ts_raw}".encode()
+    expected = hmac.new(client_secret.encode(), payload, hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(signature, expected):
+        raise HTTPException(400, "State OAuth inválido")
+
+    return user_id
 
 
 def _supabase(settings: Settings):
@@ -109,11 +143,13 @@ def authorize(
     cfg = _cfg(settings)[provider]
     if not cfg["client_id"]:
         raise HTTPException(503, f"OAuth de {provider} no configurado. Falta {provider.upper()}_CLIENT_ID")
+    if not cfg["client_secret"]:
+        raise HTTPException(503, f"OAuth de {provider} no configurado. Falta {provider.upper()}_CLIENT_SECRET")
 
     params = {
         "client_id":     cfg["client_id"],
         "redirect_uri":  cfg["callback"],
-        "state":         f"{user.id}|{_state_token(user.id)}",
+        "state":         _state_token(user.id, cfg["client_secret"]),
         "response_type": "code",
     }
     if cfg["scope"]:
@@ -137,13 +173,11 @@ async def callback(
     if provider not in PROVIDERS:
         raise HTTPException(404, f"Provider {provider} no soporta OAuth")
 
-    # Extraer user_id del state
-    try:
-        user_id = state.split("|")[0]
-    except Exception:
-        raise HTTPException(400, "State inválido")
-
     cfg = _cfg(settings)[provider]
+    if not cfg["client_secret"]:
+        raise HTTPException(503, f"OAuth de {provider} no configurado. Falta {provider.upper()}_CLIENT_SECRET")
+
+    user_id = _user_from_state(state, cfg["client_secret"])
 
     # Intercambiar code por access_token
     async with httpx.AsyncClient(timeout=10) as client:

@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import RedirectResponse
 
 from app.api.deps import get_settings_dep
+from app.api.routes.oauth import callback as complete_integration_callback
 from app.core.config import Settings
 from app.services.auth_service import AuthService
 
@@ -91,6 +92,10 @@ def oauth_login(
         raise HTTPException(
             503, f"OAuth de {provider} no configurado. Falta {provider.upper()}_CLIENT_ID"
         )
+    if not cfg["client_secret"]:
+        raise HTTPException(
+            503, f"OAuth de {provider} no configurado. Falta {provider.upper()}_CLIENT_SECRET"
+        )
 
     params: dict[str, str] = {
         "client_id": cfg["client_id"],
@@ -121,6 +126,20 @@ async def oauth_callback(
 ) -> RedirectResponse:
     if provider not in SUPPORTED_PROVIDERS:
         raise HTTPException(404, f"Provider '{provider}' no soportado")
+
+    # GitHub usa una OAuth App clásica, que admite un solo callback. El flujo de
+    # vinculación llega a esta misma ruta con un state firmado `integration|...`;
+    # delegamos al handler que persiste el token. `state=login` continúa abajo.
+    if provider == "github" and state.startswith("integration|"):
+        return await complete_integration_callback(
+            provider=provider,
+            settings=settings,
+            code=code,
+            state=state,
+        )
+
+    if state != "login":
+        raise HTTPException(400, "State OAuth inválido")
 
     cfg = _get_cfg(provider, settings)
 
