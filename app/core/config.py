@@ -112,7 +112,7 @@ class Settings(BaseSettings):
 
     # --- OpenAI -------------------------------------------------------------------
     OPENAI_API_KEY: SecretStr | None = None
-    OPENAI_MODEL: str = "gpt-4o-mini"
+    OPENAI_MODEL: str = "gpt-5.4-nano"
     OPENAI_TIMEOUT_SECONDS: float = Field(default=30.0, gt=0, le=120)
 
     # --- Demo mode ----------------------------------------------------------------

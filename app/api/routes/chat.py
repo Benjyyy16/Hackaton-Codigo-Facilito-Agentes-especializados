@@ -64,10 +64,10 @@ async def agent_chat(request: ChatRequest) -> ChatResponse:
                     "Content-Type": "application/json",
                 },
                 json={
-                    "model": "gpt-4o-mini",
+                    "model": settings.OPENAI_MODEL,
                     "messages": messages,
-                    "temperature": 0.7,
-                    "max_tokens": 500,
+                    "temperature": 0.4,
+                    "max_tokens": 350,
                 },
             )
 
