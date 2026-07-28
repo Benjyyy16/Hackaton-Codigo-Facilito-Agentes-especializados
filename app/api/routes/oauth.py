@@ -18,9 +18,11 @@ from fastapi.responses import RedirectResponse
 
 from app.api.deps import get_settings_dep
 from app.core.config import Settings
+from app.core.logging import get_logger
 from app.services.auth_service import AuthService
 
 router = APIRouter(prefix="/oauth", tags=["oauth"])
+logger = get_logger("api.oauth")
 
 # ── Config por provider ──────────────────────────────────────────────────────
 
@@ -211,13 +213,20 @@ async def callback(
 
     # Guardar en Supabase
     sb = _supabase(settings)
-    sb.table("integrations").upsert({
-        "user_id":     user_id,
-        "provider":    provider,
-        "credentials": {"token": access_token},
-        "config":      {k: v for k, v in data.items() if k != "access_token" and not k.endswith("_secret")},
-        "status":      "active",
-    }, on_conflict="user_id,provider").execute()
+    try:
+        sb.table("integrations").upsert({
+            "user_id":     user_id,
+            "provider":    provider,
+            "credentials": {"token": access_token},
+            "config":      {k: v for k, v in data.items() if k != "access_token" and not k.endswith("_secret")},
+            "status":      "active",
+        }, on_conflict="user_id,provider").execute()
+    except Exception as error:
+        logger.exception("No se pudo guardar la integración OAuth")
+        raise HTTPException(
+            503,
+            "La tabla de integraciones no está disponible. Aplicá db/schema.sql en Supabase.",
+        ) from error
 
     # Volver al frontend en lugar de dejar al usuario frente a un JSON en el
     # dominio del backend. GitHub vuelve al selector de repos, que es lo que la

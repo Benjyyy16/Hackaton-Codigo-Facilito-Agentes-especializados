@@ -62,6 +62,7 @@ EXPECTED_TABLES: Final[tuple[str, ...]] = (
     "decisions",
     "timeline_events",
     "documents",
+    "integrations",
 )
 
 #: Sentencias que jamás deben salir de este endpoint. Se comprueban sobre el fichero

@@ -18,8 +18,10 @@ from fastapi import APIRouter, HTTPException, Query
 
 from app.api.deps import CurrentUserDep, SettingsDep
 from app.core.config import Settings
+from app.core.logging import get_logger
 
 router = APIRouter(tags=["github"])
+logger = get_logger("api.github_repos")
 
 GITHUB_API = "https://api.github.com"
 
@@ -42,14 +44,21 @@ def _supabase(settings: Settings):
 def _stored_github_token(settings: Settings, user_id: str) -> str:
     """Token de GitHub guardado para el usuario, o 404 si no vinculó la cuenta."""
     sb = _supabase(settings)
-    result = (
-        sb.table("integrations")
-        .select("credentials,status")
-        .eq("user_id", user_id)
-        .eq("provider", "github")
-        .limit(1)
-        .execute()
-    )
+    try:
+        result = (
+            sb.table("integrations")
+            .select("credentials,status")
+            .eq("user_id", user_id)
+            .eq("provider", "github")
+            .limit(1)
+            .execute()
+        )
+    except Exception as error:
+        logger.exception("No se pudo consultar la tabla integrations")
+        raise HTTPException(
+            503,
+            "La tabla de integraciones no está disponible. Aplicá db/schema.sql en Supabase.",
+        ) from error
 
     rows = result.data or []
     if not rows:
