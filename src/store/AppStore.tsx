@@ -13,6 +13,7 @@ import { readJson, removeItem, writeJson } from '@/lib/storage'
 import { clearToken, isTokenExpired, msUntilExpiry, onSessionExpired } from '@/lib/authApi'
 
 const STORAGE_KEY = 'orquesta.session.v1'
+const SEED_PROJECT_IDS = new Set(seedProjects.map((p) => p.id))
 
 /** Credenciales de la cuenta de demostración, visibles a propósito. */
 export const DEMO_CREDENTIALS = {
@@ -295,11 +296,15 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     (id: string) => projects.find((p) => p.id === id),
     [projects],
   )
+  const visibleProjects = useMemo(
+    () => (user?.isDemo ? projects : projects.filter((p) => !SEED_PROJECT_IDS.has(p.id))),
+    [projects, user?.isDemo],
+  )
 
   const value = useMemo<AppStore>(
     () => ({
       user,
-      projects,
+      projects: visibleProjects,
       collaborators,
       sessionNotice,
       dismissSessionNotice,
@@ -315,11 +320,11 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       disconnectRepo,
       moveTask,
       addTask,
-      getProject,
+      getProject: (id: string) => visibleProjects.find((p) => p.id === id),
     }),
     [
       user,
-      projects,
+      visibleProjects,
       collaborators,
       sessionNotice,
       dismissSessionNotice,

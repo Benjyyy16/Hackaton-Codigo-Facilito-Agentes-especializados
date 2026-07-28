@@ -1,19 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { AlertTriangle, Eye, Github, Lock, Mail, PlayCircle, X, Zap } from 'lucide-react'
+import { Eye, Github, Lock, Mail, PlayCircle, X, Zap } from 'lucide-react'
 import { DEMO_CREDENTIALS, useAppStore } from '@/store/AppStore'
 import { OrquestaMark } from '@/components/brand/Logos'
 import { getStoredToken, oauthLoginUrl } from '@/lib/authApi'
-import { getProvenance } from '@/lib/analysisApi'
 
 export default function Login() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const { user, signIn, signInDemo, signOut, sessionNotice } = useAppStore()
 
-  /** `null` mientras se consulta; luego si el backend tiene GitHub conectado. */
-  const [githubReady, setGithubReady] = useState<boolean | null>(null)
   const [redirecting, setRedirecting] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -36,22 +33,6 @@ export default function Login() {
     }
     navigate('/app', { replace: true })
   }, [user, navigate, signOut])
-
-  /**
-   * `GET /live/provenance` dice qué providers están realmente conectados.
-   * Sirve para no mandar al usuario a un OAuth que responderá
-   * "503 · Falta GITHUB_CLIENT_ID" y dejarlo en una pantalla de error.
-   */
-  useEffect(() => {
-    const controller = new AbortController()
-    getProvenance({ signal: controller.signal, timeoutMs: 12_000 })
-      .then(({ providers }) => {
-        const github = providers.find((p) => p.provider === 'github')
-        setGithubReady(Boolean(github?.connected))
-      })
-      .catch(() => setGithubReady(false))
-    return () => controller.abort()
-  }, [])
 
   const title = useMemo(
     () => (mode === 'signup' ? 'Creá tu cuenta' : 'Iniciá sesión'),
@@ -110,18 +91,6 @@ export default function Login() {
             className="mb-4 rounded-lg border-2 border-clay-500 bg-clay-100 px-3 py-2.5"
           >
             <p className="text-[12px] text-clay-700">{sessionNotice}</p>
-          </div>
-        )}
-
-        {githubReady === false && (
-          <div
-            role="alert"
-            className="mb-4 flex items-start gap-2.5 rounded-lg border-2 border-clay-500 bg-clay-100 px-3 py-2.5"
-          >
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-clay-400" aria-hidden />
-            <p className="text-[12px] leading-relaxed text-clay-700">
-              GitHub OAuth no está disponible ahora. Podés ingresar con correo.
-            </p>
           </div>
         )}
 

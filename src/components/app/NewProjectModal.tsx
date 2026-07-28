@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Check, FolderPlus, X } from 'lucide-react'
+import { Check, FolderPlus, Loader2, X, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { GitHubLogo } from '@/components/brand/Logos'
 import { useAppStore } from '@/store/AppStore'
 import { useFocusTrap } from '@/hooks/useFocusTrap'
 import { cn } from '@/lib/cn'
+import { listUserRepos, type GitHubRepo } from '@/lib/githubApi'
 
 /** Repos que devolvería la API de GitHub tras el OAuth. */
 const availableRepos = [
@@ -24,10 +25,12 @@ export function NewProjectModal({
   onClose: () => void
   onCreated: (id: string) => void
 }) {
-  const { createProject } = useAppStore()
+  const { createProject, user } = useAppStore()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [repo, setRepo] = useState<string | null>(null)
+  const [repos, setRepos] = useState(availableRepos)
+  const [reposLoading, setReposLoading] = useState(false)
   const [loading, setLoading] = useState(false)
   /** Mantiene el foco dentro del modal y lo devuelve al cerrar. */
   const dialogRef = useFocusTrap<HTMLDivElement>(open)
@@ -48,6 +51,31 @@ export function NewProjectModal({
     return () => document.removeEventListener('keydown', onKey)
   }, [open, onClose])
 
+  useEffect(() => {
+    if (!open || !user || user.isDemo) {
+      setRepos(availableRepos)
+      return
+    }
+    const controller = new AbortController()
+    setReposLoading(true)
+    listUserRepos(controller.signal)
+      .then((data: GitHubRepo[]) => {
+        if (controller.signal.aborted) return
+        setRepos(
+          data.map((r) => ({
+            full: r.full_name,
+            lang: r.language ?? r.default_branch,
+            priv: r.private,
+          })),
+        )
+      })
+      .catch(() => setRepos([]))
+      .finally(() => {
+        if (!controller.signal.aborted) setReposLoading(false)
+      })
+    return () => controller.abort()
+  }, [open, user])
+
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     if (name.trim().length < 2) return
@@ -57,6 +85,18 @@ export function NewProjectModal({
       name: name.trim(),
       description: description.trim() || 'Sin descripción todavía.',
       repoFullName: repo ?? undefined,
+    })
+    setLoading(false)
+    onCreated(p.id)
+  }
+
+  async function createExample() {
+    setLoading(true)
+    await new Promise((r) => setTimeout(r, 350))
+    const p = createProject({
+      name: 'Repo de prueba Datgent',
+      description: 'Tablero sandbox para probar agentes, kanban, canvas y chat IA.',
+      repoFullName: 'Benjyyy16/datgent-prueba',
     })
     setLoading(false)
     onCreated(p.id)
@@ -144,11 +184,37 @@ export function NewProjectModal({
                 <div>
                   <p className="label-mono mb-2 flex items-center gap-1.5 text-ink-500">
                     <GitHubLogo className="h-3.5 w-3.5" />
-                    conectar repositorio
-                    <span className="normal-case tracking-normal text-ink-300">(opcional)</span>
+                    tus repositorios
                   </p>
+                  <button
+                    type="button"
+                    onClick={createExample}
+                    disabled={loading}
+                    className="mb-2 flex w-full items-center gap-3 rounded-lg border-2 border-violet-600 bg-violet-50 px-3 py-2.5 text-left transition hover:bg-violet-100 disabled:opacity-60"
+                  >
+                    <Zap className="h-4 w-4 shrink-0 text-violet-700" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-mono text-[12.5px] font-bold text-ink-900">
+                        Crear repo de prueba Datgent
+                      </span>
+                      <span className="font-mono text-[10px] uppercase tracking-wider text-violet-700">
+                        sandbox · recomendado
+                      </span>
+                    </span>
+                  </button>
                   <div className="space-y-1.5">
-                    {availableRepos.map((r) => {
+                    {reposLoading && (
+                      <div className="flex items-center gap-2 rounded-lg border-2 border-ink-200 bg-paper px-3 py-2.5 text-[12px] text-ink-500">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Cargando repositorios…
+                      </div>
+                    )}
+                    {!reposLoading && repos.length === 0 && (
+                      <p className="rounded-lg border-2 border-dashed border-ink-200 px-3 py-4 text-center text-[12px] text-ink-400">
+                        No hay repos disponibles. Usa el repo de prueba.
+                      </p>
+                    )}
+                    {!reposLoading && repos.map((r) => {
                       const sel = repo === r.full
                       return (
                         <button
