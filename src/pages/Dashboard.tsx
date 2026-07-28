@@ -241,6 +241,26 @@ export default function Dashboard() {
     }
     return map
   }, [projects, collaborators])
+  const dashboardContext = useMemo(() => {
+    const rows = projects
+      .map((p) => {
+        const done = p.tasks.filter((t) => t.status === 'done').length
+        return [
+          `Proyecto: ${p.name}`,
+          `Repo: ${p.repo?.fullName ?? 'sin repo'}`,
+          `Tareas: ${done}/${p.tasks.length} cerradas`,
+          `PRs abiertos: ${p.repo?.stats.openPRs ?? 0}`,
+          `Presupuesto: ${p.budget.spent}/${p.budget.allocated} ${p.budget.currency}`,
+        ].join(' · ')
+      })
+      .join('\n')
+    return [
+      `Usuario: ${user?.name ?? 'sin sesión'}`,
+      `Tipo de sesión: ${user?.isDemo ? 'demo' : 'github/real'}`,
+      `Proyectos visibles: ${projects.length}`,
+      rows || 'Sin proyectos todavía. Ofrece crear repo de prueba o elegir un repo GitHub.',
+    ].join('\n')
+  }, [projects, user])
 
   const handleAnalyze = useCallback(
     (repoFullName: string) => {
@@ -289,11 +309,9 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {isRealGithubSession && (
-          <div className="mt-6">
-            <CompanyAiChat onCreateExample={createExampleRepo} compact />
-          </div>
-        )}
+        <div className="mt-6">
+          <CompanyAiChat onCreateExample={createExampleRepo} context={dashboardContext} />
+        </div>
 
         {/* Estado de la API */}
         {!isRealGithubSession && apiLoading && (
