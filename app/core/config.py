@@ -98,7 +98,7 @@ class Settings(BaseSettings):
 
     # --- OAuth apps (para flujo OAuth de usuarios externos) ---------------------
     APP_BASE_URL: str = "https://hackaton-codigo-facilito-agentes.onrender.com"
-    FRONTEND_URL: str = "https://hackaton-codigo-facilito-agentes-especializados.vercel.app"
+    FRONTEND_URL: str = "https://hackatondatgent.vercel.app"
     GITHUB_CLIENT_ID: str | None = None
     GITHUB_CLIENT_SECRET: SecretStr | None = None
     GOOGLE_CLIENT_ID: str | None = None
