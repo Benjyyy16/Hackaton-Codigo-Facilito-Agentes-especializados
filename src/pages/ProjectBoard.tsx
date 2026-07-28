@@ -1,14 +1,17 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   Bot,
+  Brain,
   GitBranch,
   GitPullRequest,
   KanbanSquare,
+  Loader2,
   Network,
   Plug,
   RefreshCw,
+  Send,
   Unplug,
   User as UserIcon,
   Users,
@@ -20,7 +23,9 @@ import { Avatar } from '@/components/ui/Avatar'
 import { Odometer, Stamp } from '@/components/ui/Bits'
 import { GitHubLogo, SupabaseLogo } from '@/components/brand/Logos'
 import { useAppStore } from '@/store/AppStore'
-import type { TaskStatus } from '@/store/types'
+import { sendAgentMessage, type ChatMessage } from '@/lib/chatApi'
+import { errorMessage } from '@/lib/http'
+import type { Project, TaskStatus } from '@/store/types'
 import { cn } from '@/lib/cn'
 
 const columns: { id: TaskStatus; label: string; accent: string; head: string }[] = [
@@ -29,6 +34,158 @@ const columns: { id: TaskStatus; label: string; accent: string; head: string }[]
   { id: 'review', label: 'Revisión', accent: 'bg-clay-500', head: 'bg-clay-100' },
   { id: 'done', label: 'Hecho', accent: 'bg-mint-500', head: 'bg-mint-100' },
 ]
+
+const agentPrompts = [
+  ['Estratega', 'Prioriza el backlog y dime qué hacer primero.'],
+  ['Auditor', 'Audita riesgos de PRs, RLS, cobertura y deuda técnica.'],
+  ['Analista', 'Cruza avance, presupuesto y capacidad del equipo.'],
+  ['Cronista', 'Resume el estado del proyecto para stakeholders.'],
+] as const
+
+function projectContext(project: Project, view: 'canvas' | 'kanban') {
+  const tasks = project.tasks
+    .map((t) => `${t.title} [${t.status}] owner=${t.owner}${t.ref ? ` ref=${t.ref}` : ''}`)
+    .join('\n')
+  return [
+    `Vista activa: ${view}.`,
+    `Proyecto: ${project.name}.`,
+    `Descripción: ${project.description}.`,
+    `Repo: ${project.repo?.fullName ?? 'sin repo'} / rama ${project.repo?.branch ?? 'n/a'}.`,
+    `Stats: commits=${project.repo?.stats.commits ?? 0}, PRs abiertos=${project.repo?.stats.openPRs ?? 0}, cobertura=${project.repo?.stats.coverage ?? 0}%.`,
+    `Presupuesto: ${project.budget.spent}/${project.budget.allocated} ${project.budget.currency}.`,
+    `Tareas:\n${tasks}`,
+  ].join('\n')
+}
+
+function BoardAiAssistant({ project, view }: { project: Project; view: 'canvas' | 'kanban' }) {
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      role: 'assistant',
+      content:
+        'Soy Datgent Cerebro. Pregúntame por el canvas, el kanban, riesgos, bloqueos o próximas acciones.',
+    },
+  ])
+  const [draft, setDraft] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
+  const context = useMemo(() => projectContext(project, view), [project, view])
+
+  useEffect(() => () => abortRef.current?.abort(), [])
+
+  const ask = useCallback(
+    async (raw?: string) => {
+      const text = (raw ?? draft).trim()
+      if (!text || loading) return
+      const userMessage: ChatMessage = { role: 'user', content: text }
+      const visible = [...messages, userMessage]
+      setMessages(visible)
+      setDraft('')
+      setErr(null)
+      setLoading(true)
+      abortRef.current?.abort()
+      const controller = new AbortController()
+      abortRef.current = controller
+      try {
+        const prompt = `${context}\n\nPregunta del usuario: ${text}\nResponde como Datgent Cerebro, usando tus agentes. Sé concreto.`
+        const res = await sendAgentMessage(prompt, messages, controller.signal)
+        setMessages([...visible, { role: 'assistant', content: res.response }])
+      } catch (error) {
+        setErr(errorMessage(error, 'No pude consultar la IA.'))
+      } finally {
+        setLoading(false)
+      }
+    },
+    [context, draft, loading, messages],
+  )
+
+  return (
+    <section className="mt-6 overflow-hidden rounded-xl border-2 border-ink-900 bg-paper shadow-hard">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-ink-100 bg-violet-50 px-4 py-3">
+        <div className="flex items-center gap-2">
+          <span className="grid h-9 w-9 place-items-center rounded-lg border-2 border-ink-900 bg-violet-600 text-white">
+            <Brain className="h-4 w-4" />
+          </span>
+          <div>
+            <p className="text-[15px] font-extrabold text-ink-900">IA conectada al tablero</p>
+            <p className="font-mono text-[10px] uppercase tracking-wider text-ink-400">
+              contexto en tiempo real · {view}
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {agentPrompts.map(([agent, prompt]) => (
+            <button
+              key={agent}
+              onClick={() => void ask(`${agent}: ${prompt}`)}
+              className="rounded border-2 border-ink-900 bg-paper px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-ink-700 transition-colors hover:bg-violet-600 hover:text-white"
+            >
+              {agent}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid gap-0 lg:grid-cols-[1fr_280px]">
+        <div className="p-4">
+          <div className="max-h-[260px] space-y-2 overflow-y-auto rounded-lg border-2 border-ink-100 bg-paper-100 p-3">
+            {messages.map((m, i) => (
+              <div key={i} className={m.role === 'user' ? 'text-right' : 'text-left'}>
+                <p
+                  className={cn(
+                    'inline-block max-w-[88%] rounded-lg border-2 px-3 py-2 text-[13px] leading-relaxed',
+                    m.role === 'user'
+                      ? 'border-violet-600 bg-violet-600 text-white'
+                      : 'border-ink-900 bg-paper text-ink-800',
+                  )}
+                >
+                  {m.content}
+                </p>
+              </div>
+            ))}
+            {loading && (
+              <p className="inline-flex items-center gap-2 rounded-lg border-2 border-ink-900 bg-paper px-3 py-2 text-[13px] text-ink-600">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                consultando agentes…
+              </p>
+            )}
+          </div>
+          {err && <p className="mt-2 text-[12px] font-medium text-clay-700">{err}</p>}
+          <div className="mt-3 flex gap-2">
+            <input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void ask()
+              }}
+              placeholder="Pregunta sobre este canvas o kanban..."
+              className="min-w-0 flex-1 rounded-lg border-2 border-ink-900 bg-paper px-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-violet-300"
+            />
+            <button
+              onClick={() => void ask()}
+              disabled={loading || !draft.trim()}
+              className="grid h-10 w-10 place-items-center rounded-lg border-2 border-ink-900 bg-violet-600 text-white shadow-hard-sm disabled:opacity-50"
+            >
+              <Send className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        <aside className="border-t-2 border-ink-900 bg-ink-900 p-4 text-white lg:border-l-2 lg:border-t-0">
+          <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-mint-300">
+            memoria del tablero
+          </p>
+          <ul className="mt-3 space-y-2 font-mono text-[10.5px] text-white/70">
+            <li>Repo: {project.repo?.fullName ?? 'sin repo'}</li>
+            <li>Tareas: {project.tasks.length}</li>
+            <li>Vista: {view}</li>
+            <li>PRs abiertos: {project.repo?.stats.openPRs ?? 0}</li>
+          </ul>
+        </aside>
+      </div>
+    </section>
+  )
+}
 
 export default function ProjectBoard() {
   const { id } = useParams<{ id: string }>()
@@ -393,6 +550,8 @@ export default function ProjectBoard() {
               arrastrá tarjetas entre columnas · con el repo conectado, los merges las mueven solos
             </p>
           )}
+
+          <BoardAiAssistant project={project} view={view} />
         </div>
       </div>
     </AppShell>
