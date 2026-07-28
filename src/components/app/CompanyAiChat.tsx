@@ -53,16 +53,26 @@ export function CompanyAiChat({
     <section className="overflow-hidden rounded-xl border-2 border-ink-900 bg-paper shadow-hard">
       <div className={compact ? '' : 'grid gap-0 lg:grid-cols-[1fr_320px]'}>
         <div className={compact ? 'p-3 sm:p-4' : 'p-4 sm:p-5'}>
-          <div className="flex items-center gap-2">
-            <span className="grid h-9 w-9 place-items-center rounded-lg border-2 border-ink-900 bg-violet-600 text-white">
-              <Bot className="h-4 w-4" />
-            </span>
-            <div>
-              <p className="label-mono text-ink-400">chat ia para empresas</p>
-              <h2 className={compact ? 'text-[16px] font-extrabold text-ink-900' : 'text-[20px] font-extrabold text-ink-900'}>
-                Habla con Datgent
-              </h2>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="grid h-9 w-9 place-items-center rounded-lg border-2 border-ink-900 bg-violet-600 text-white">
+                <Bot className="h-4 w-4" />
+              </span>
+              <div>
+                <p className="label-mono text-ink-400">chat ia para empresas</p>
+                <h2 className={compact ? 'text-[16px] font-extrabold text-ink-900' : 'text-[20px] font-extrabold text-ink-900'}>
+                  Habla con Datgent
+                </h2>
+              </div>
             </div>
+            {compact && (
+              <button
+                onClick={onCreateExample}
+                className="rounded-lg border-2 border-ink-900 bg-mint-500 px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-wider text-ink-900 shadow-hard-sm"
+              >
+                repo ejemplo
+              </button>
+            )}
           </div>
 
           <div className={compact ? 'mt-3 max-h-[115px] space-y-2 overflow-y-auto rounded-lg border-2 border-ink-100 bg-paper-100 p-2' : 'mt-4 max-h-[360px] space-y-3 overflow-y-auto rounded-lg border-2 border-ink-100 bg-paper-100 p-3'}>
